@@ -4,6 +4,7 @@ Fetches real-time weather from OpenWeatherMap and generates agricultural advice.
 """
 import time
 import logging
+import asyncio
 import httpx
 from datetime import datetime
 
@@ -98,7 +99,6 @@ def weather_agent(state: FarmSphereState) -> dict:
     """
     Weather Agent — Fetches real-time weather and generates farm-specific advice.
     """
-    import asyncio
     start_time = time.time()
     logger.info("Weather agent activated for location: %s", state.get("location", "default"))
 

@@ -5,6 +5,7 @@ All routes, middleware, startup, and SSE streaming.
 import time
 import uuid
 import json
+import asyncio
 import logging
 import base64
 from contextlib import asynccontextmanager
@@ -275,7 +276,6 @@ async def chat_stream(req: ChatRequest):
                 await asyncio.sleep(0.1)  # Small delay for visual effect
 
             # Run actual pipeline
-            import asyncio
             langgraph_app = get_langgraph_app()
             initial_state = build_initial_state(req)
 
@@ -317,7 +317,7 @@ async def chat_stream(req: ChatRequest):
             error_data = json.dumps({"type": "error", "message": str(e)})
             yield f"data: {error_data}\n\n"
 
-    import asyncio
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -465,7 +465,6 @@ async def get_weather(lat: float = settings.default_lat, lon: float = settings.d
     from agents.weather_agent import MOCK_WEATHER_DATA
     if settings.openweather_api_key:
         try:
-            import asyncio
             from agents.weather_agent import fetch_weather
             return await fetch_weather(lat, lon, settings.openweather_api_key)
         except Exception:
