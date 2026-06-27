@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Minus, MapPin, Search } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const rawApiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = rawApiBase.endsWith('/') ? rawApiBase.slice(0, -1) : rawApiBase;
 
 const cropEmoji: Record<string, string> = {
   tomato: "🍅", wheat: "🌾", rice: "🌾", onion: "🧅",

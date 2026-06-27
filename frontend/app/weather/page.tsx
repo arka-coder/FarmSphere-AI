@@ -5,7 +5,8 @@ import { Wind, Droplets, Thermometer, Eye, Gauge, CloudRain, MapPin } from "luci
 import Sidebar from "@/components/layout/Sidebar";
 import { type WeatherData } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const rawApiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = rawApiBase.endsWith('/') ? rawApiBase.slice(0, -1) : rawApiBase;
 
 const conditionEmoji: Record<string, string> = {
   "Partly Cloudy": "⛅",
