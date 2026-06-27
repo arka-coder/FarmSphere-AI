@@ -14,11 +14,6 @@ const nextConfig = {
       },
     ];
   },
-  eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors or invalid ESLint config options.
-    ignoreDuringBuilds: true,
-  },
 };
 
 module.exports = nextConfig;
