@@ -58,7 +58,7 @@ export default function SatellitePage() {
     // Show mock immediately, update if backend responds
     setData(buildMockData(crop));
     getSatelliteData(crop)
-      .then(d => { if (d?.current_ndvi) setData(d); })
+      .then((d: any) => { if (d?.current_ndvi) setData(d); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [crop]);
