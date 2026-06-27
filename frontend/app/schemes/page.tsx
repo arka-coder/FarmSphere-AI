@@ -165,11 +165,7 @@ export default function SchemesPage() {
                         >
                           Apply Now <ExternalLink size={11} />
                         </a>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
-                          <Store size={11} /> Visit in Person
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   </motion.div>
                 )}

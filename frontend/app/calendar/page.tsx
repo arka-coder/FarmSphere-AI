@@ -5,7 +5,8 @@ import { Calendar, CheckCircle, Clock, Leaf, Droplets, FlaskConical, Scissors, T
 import Sidebar from "@/components/layout/Sidebar";
 import { getCalendar } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const rawApiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = rawApiBase.endsWith('/') ? rawApiBase.slice(0, -1) : rawApiBase;
 
 const CROPS = ["tomato", "wheat", "rice", "cotton", "onion", "potato", "maize", "soybean"];
 
