@@ -32,13 +32,14 @@ class FarmSphereState(TypedDict):
     # ── Farmer Context ─────────────────────────────────────────
     farmer_id: Optional[str]
     farmer_name: Optional[str]
-    location: Optional[str]
+    location: Optional[str]              # Combined location string
     district: Optional[str]
     state_name: Optional[str]
+    country: Optional[str]               # Country for global context
     crop_type: Optional[str]
     land_size_acres: Optional[float]
     season: Optional[str]
-    language: str                          # default: "en"
+    language: str                        # Always "en"
 
     # ── Current Request ────────────────────────────────────────
     user_message: str

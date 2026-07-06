@@ -1,303 +1,346 @@
 "use client";
-import { useState, useEffect } from "react";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  CloudSun, TrendingUp, AlertTriangle, Leaf, Satellite,
-  Calendar, FileText, Zap, Activity, Wind, Droplets, Thermometer,
+  AlertTriangle,
+  ArrowRight,
+  BrainCircuit,
+  CheckCircle2,
+  ChevronDown,
+  CloudSun,
+  MapPin,
+  MessageCircle,
+  Radar,
+  Satellite,
+  ShieldCheck,
+  Sparkles,
+  Sprout,
 } from "lucide-react";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis,
-} from "recharts";
-import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
-import { getWeather, getAlerts, getMarketData, getSatelliteData } from "@/lib/api";
+import TopNav from "@/components/layout/TopNav";
+import { getAlerts, getSatelliteData, getWeather } from "@/lib/api";
+import { useFarm } from "@/contexts/FarmContext";
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.08, duration: 0.4, ease: "easeOut" },
-  }),
-};
-
-// Mock NDVI chart data
-const ndviData = [
-  { date: "Jun 1", ndvi: 0.42 }, { date: "Jun 5", ndvi: 0.48 },
-  { date: "Jun 10", ndvi: 0.55 }, { date: "Jun 15", ndvi: 0.61 },
-  { date: "Jun 18", ndvi: 0.58 }, { date: "Jun 21", ndvi: 0.63 },
+const actions = [
+  {
+    title: "Inspect tomato leaves before evening humidity rises",
+    detail: "Disease risk climbs after tonight's rain window.",
+    href: "/disease",
+    priority: "High",
+  },
+  {
+    title: "Delay pesticide application by 24 hours",
+    detail: "Rain probability makes spray loss likely tomorrow.",
+    href: "/weather",
+    priority: "Medium",
+  },
+  {
+    title: "Hold tomato harvest for price confirmation",
+    detail: "Market agent sees a short-term upward signal.",
+    href: "/market",
+    priority: "Low",
+  },
 ];
 
-const riskRadarData = [
-  { factor: "Disease", value: 68 },
-  { factor: "Pest", value: 42 },
-  { factor: "Weather", value: 75 },
-  { factor: "Irrigation", value: 28 },
-  { factor: "Market", value: 35 },
-];
-
-const MARKET_HIGHLIGHTS = [
-  { crop: "Tomato 🍅", price: "₹1,850/q", trend: "+12.5%", up: true },
-  { crop: "Wheat 🌾", price: "₹2,275/q", trend: "+1.2%", up: true },
-  { crop: "Rice 🌾", price: "₹2,183/q", trend: "-3.4%", up: false },
-  { crop: "Onion 🧅", price: "₹2,400/q", trend: "+18%", up: true },
+const agentFlow = [
+  "Weather Agent",
+  "Satellite Agent",
+  "Disease Agent",
+  "Risk Agent",
+  "Recommendation Agent",
+  "Explainability Agent",
 ];
 
 export default function DashboardPage() {
+  const { cropType, setCropType, location: contextLocation, setLocation } = useFarm();
   const [weather, setWeather] = useState<any>(null);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [satellite, setSatellite] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [locationStatus, setLocationStatus] = useState<"detecting" | "precise" | "default" | "unavailable">("detecting");
 
   useEffect(() => {
-    Promise.all([
-      getWeather().catch(() => null),
-      getAlerts().catch(() => ({ alerts: [] })),
-      getSatelliteData("tomato").catch(() => null),
-    ]).then(([w, a, s]) => {
-      setWeather(w);
-      setAlerts(a?.alerts || []);
-      setSatellite(s);
-      setLoading(false);
-    });
+    const loadDashboardData = (coords?: { lat: number; lon: number }) => {
+      Promise.all([
+        getWeather(coords).catch(() => null),
+        getAlerts(coords).catch(() => ({ alerts: [] })),
+        getSatelliteData(cropType).catch(() => null),
+      ]).then(([w, a, s]) => {
+        setWeather(w);
+        setAlerts(a?.alerts || []);
+        setSatellite(s);
+      });
+    };
+
+    if (!navigator.geolocation) {
+      setLocationStatus("unavailable");
+      loadDashboardData();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationStatus("precise");
+        loadDashboardData({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+        });
+      },
+      () => {
+        setLocationStatus("default");
+        loadDashboardData();
+      },
+      { timeout: 7000, maximumAge: 300000 },
+    );
   }, []);
 
+  const today = useMemo(
+    () =>
+      new Date().toLocaleDateString("en-IN", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }),
+    [],
+  );
+
+  const temp = weather?.temperature ?? 28;
+  const rainChance = weather?.forecast?.[0]?.rain_chance ?? 70;
+  const ndvi = satellite?.current_ndvi?.toFixed?.(2) ?? "0.63";
+  const alertCount = alerts.length;
+  const locationName = weather?.location ?? (
+    locationStatus === "detecting" ? "Detecting your location..." : "Default farm location"
+  );
+  const locationLabel =
+    locationStatus === "precise" ? "Precise location" :
+    locationStatus === "detecting" ? "Detecting location" :
+    locationStatus === "unavailable" ? "Browser location unavailable" :
+    "Using default location";
+
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
+    <div className="relative flex h-screen overflow-hidden bg-base">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,#f7faf8_0%,#eef7f0_44%,#f8fbff_100%)]" />
+      <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.16),transparent_46%)]" />
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <div className="bg-farm-gradient px-8 pt-8 pb-16 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-4 right-8 text-8xl">🌾</div>
-            <div className="absolute bottom-4 right-32 text-4xl">🌱</div>
-          </div>
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-            <p className="text-farm-300 text-sm font-medium">Good evening,</p>
-            <h1 className="font-display text-3xl font-bold text-white mt-1">Farm Dashboard</h1>
-            <p className="text-farm-200 text-sm mt-1">
-              17 AI agents monitoring your farm • {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-            </p>
-          </motion.div>
-        </div>
+      <main className="relative flex flex-1 flex-col overflow-hidden">
+        <TopNav />
 
-        <div className="px-8 -mt-8 pb-8 space-y-6">
-          {/* Quick stats row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { icon: "🌡️", label: "Temperature", value: weather ? `${weather.temperature}°C` : "28°C", sub: weather?.feels_like ? `Feels ${weather.feels_like}°C` : "Loading..." },
-              { icon: "💧", label: "Humidity", value: weather ? `${weather.humidity}%` : "72%", sub: weather?.weather_condition || "Partly Cloudy" },
-              { icon: "🌱", label: "NDVI Score", value: satellite ? satellite.current_ndvi?.toFixed(2) : "0.63", sub: satellite?.vegetation_health || "Healthy" },
-              { icon: "⚠️", label: "Active Alerts", value: alerts.length.toString(), sub: alerts.find(a => a.severity === "high") ? "Action needed" : "No critical issues" },
-            ].map((stat, i) => (
-              <motion.div key={i} custom={i} variants={cardVariants} initial="hidden" animate="visible"
-                className="glass-card bg-white dark:bg-gray-900 p-5"
-              >
-                <span className="text-2xl">{stat.icon}</span>
-                <p className="text-2xl font-display font-bold text-gray-900 dark:text-white mt-2">{stat.value}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{stat.label}</p>
-                <p className="text-xs text-farm-600 dark:text-farm-400 mt-0.5">{stat.sub}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Main grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Weather Card — spans 2 cols */}
-            <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible"
-              className="lg:col-span-2 weather-card"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-white/70 text-sm font-medium">Current Weather</p>
-                  <p className="text-4xl font-display font-bold text-white mt-1">
-                    {weather?.temperature ?? 28}°C
-                  </p>
-                  <p className="text-white/90 mt-1">{weather?.weather_condition || "Partly Cloudy"}</p>
-                  <p className="text-white/60 text-sm">{weather?.location || "Your Location"}</p>
-                </div>
-                <div className="text-right space-y-1">
-                  <div className="flex items-center gap-1.5 justify-end">
-                    <Droplets size={14} className="text-white/70" />
-                    <span className="text-white text-sm">{weather?.humidity ?? 72}% humidity</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 justify-end">
-                    <Wind size={14} className="text-white/70" />
-                    <span className="text-white text-sm">{weather?.wind_speed ?? 3.4} m/s</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 justify-end">
-                    <Thermometer size={14} className="text-white/70" />
-                    <span className="text-white text-sm">Feels {weather?.feels_like ?? 31}°C</span>
-                  </div>
-                </div>
-              </div>
-              {/* 3-day forecast */}
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                {(weather?.forecast || [
-                  { day: "Tomorrow", condition: "Light Rain", temp_max: 30, rain_chance: 70 },
-                  { day: "Day After", condition: "Thunderstorm", temp_max: 27, rain_chance: 85 },
-                  { day: "Day 3", condition: "Sunny", temp_max: 32, rain_chance: 20 },
-                ]).map((f: any, i: number) => (
-                  <div key={i} className="bg-white/10 rounded-xl p-2.5 text-center">
-                    <p className="text-white/60 text-xs">{f.day}</p>
-                    <p className="text-white font-semibold text-sm mt-1">{f.temp_max}°C</p>
-                    <p className="text-white/80 text-xs mt-0.5">{f.condition}</p>
-                    <p className="text-blue-200 text-xs mt-0.5">🌧 {f.rain_chance}%</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Risk Radar */}
-            <motion.div custom={5} variants={cardVariants} initial="hidden" animate="visible"
-              className="glass-card bg-white dark:bg-gray-900 p-5"
-            >
-              <p className="font-semibold text-gray-800 dark:text-white text-sm mb-4 flex items-center gap-2">
-                <AlertTriangle size={16} className="text-amber-500" /> Risk Radar
-              </p>
-              <ResponsiveContainer width="100%" height={180}>
-                <RadarChart data={riskRadarData}>
-                  <PolarGrid stroke="#22c55e20" />
-                  <PolarAngleAxis dataKey="factor" tick={{ fontSize: 10, fill: "#9ca3af" }} />
-                  <Radar dataKey="value" stroke="#22c55e" fill="#22c55e" fillOpacity={0.2} strokeWidth={2} />
-                </RadarChart>
-              </ResponsiveContainer>
-              <div className="mt-2 space-y-1.5">
-                {riskRadarData.map((r) => (
-                  <div key={r.factor} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-16">{r.factor}</span>
-                    <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                      <div className={`h-full rounded-full ${r.value > 65 ? "bg-red-500" : r.value > 40 ? "bg-amber-500" : "bg-farm-500"}`}
-                        style={{ width: `${r.value}%` }} />
-                    </div>
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 w-8 text-right">{r.value}%</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-
-          {/* NDVI + Market row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* NDVI Chart */}
-            <motion.div custom={6} variants={cardVariants} initial="hidden" animate="visible"
-              className="glass-card bg-white dark:bg-gray-900 p-5"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="font-semibold text-gray-800 dark:text-white text-sm flex items-center gap-2">
-                    <Satellite size={16} className="text-blue-500" /> Satellite NDVI
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">30-day vegetation health index</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-farm-600 dark:text-farm-400">
-                    {satellite?.current_ndvi?.toFixed(2) || "0.63"}
-                  </p>
-                  <p className={`text-xs font-medium ${
-                    satellite?.ndvi_trend === "improving" ? "text-farm-500" : "text-amber-500"
-                  }`}>
-                    {satellite?.ndvi_trend === "improving" ? "↑ Improving" : "↓ Declining"}
-                  </p>
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={140}>
-                <AreaChart data={ndviData}>
-                  <defs>
-                    <linearGradient id="ndviGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0fdf4" strokeOpacity={0.5} />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9ca3af" }} />
-                  <YAxis domain={[0.3, 0.8]} tick={{ fontSize: 10, fill: "#9ca3af" }} />
-                  <Tooltip
-                    contentStyle={{ background: "#052e16", border: "none", borderRadius: 8, color: "white", fontSize: 12 }}
-                    formatter={(v: number) => [v.toFixed(3), "NDVI"]}
-                  />
-                  <Area type="monotone" dataKey="ndvi" stroke="#22c55e" strokeWidth={2.5}
-                    fill="url(#ndviGrad)" dot={{ fill: "#22c55e", r: 3 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </motion.div>
-
-            {/* Market Prices */}
-            <motion.div custom={7} variants={cardVariants} initial="hidden" animate="visible"
-              className="glass-card bg-white dark:bg-gray-900 p-5"
-            >
-              <p className="font-semibold text-gray-800 dark:text-white text-sm flex items-center gap-2 mb-4">
-                <TrendingUp size={16} className="text-emerald-500" /> Market Prices Today
-              </p>
-              <div className="space-y-3">
-                {MARKET_HIGHLIGHTS.map((m, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{m.crop.split(" ")[1]}</span>
-                      <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">
-                        {m.crop.split(" ")[0]}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-gray-800 dark:text-white">{m.price}</span>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        m.up ? "bg-farm-50 text-farm-600 dark:bg-farm-950/50 dark:text-farm-400" :
-                               "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                      }`}>
-                        {m.trend}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Link href="/market" className="mt-4 block text-center text-xs text-farm-600 dark:text-farm-400 hover:underline font-medium">
-                View all market data →
-              </Link>
-            </motion.div>
-          </div>
-
-          {/* Active Alerts */}
-          {alerts.length > 0 && (
-            <motion.div custom={8} variants={cardVariants} initial="hidden" animate="visible"
-              className="glass-card bg-white dark:bg-gray-900 p-5"
-            >
-              <p className="font-semibold text-gray-800 dark:text-white text-sm mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                Active Alerts ({alerts.length})
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {alerts.map((alert, i) => (
-                  <div key={i} className={`rounded-xl p-3 alert-${alert.severity}`}>
-                    <p className="text-sm font-semibold">{alert.title}</p>
-                    <p className="text-xs mt-1 opacity-80">{alert.message}</p>
-                    <p className="text-xs font-medium mt-1.5 opacity-90">→ {alert.action}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Quick action cards */}
-          <motion.div custom={9} variants={cardVariants} initial="hidden" animate="visible"
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        <div className="flex-1 overflow-y-auto px-5 pb-10 pt-32 scrollbar-hide md:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[1fr_360px]"
           >
-            {[
-              { href: "/chat", icon: "💬", label: "AI Assistant", desc: "Ask anything", color: "from-farm-600 to-farm-700" },
-              { href: "/disease", icon: "🔬", label: "Disease Scan", desc: "Upload plant image", color: "from-blue-600 to-blue-700" },
-              { href: "/simulation", icon: "🔮", label: "What-If Sim", desc: "Predict outcomes ⭐", color: "from-violet-600 to-violet-700" },
-              { href: "/schemes", icon: "📋", label: "Schemes", desc: "PM-KISAN & more", color: "from-amber-500 to-amber-600" },
-            ].map((card, i) => (
-              <Link key={i} href={card.href}>
-                <motion.div whileHover={{ y: -4, scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                  className={`bg-gradient-to-br ${card.color} rounded-2xl p-4 text-white cursor-pointer shadow-lg`}
-                >
-                  <span className="text-2xl">{card.icon}</span>
-                  <p className="font-display font-bold mt-2 text-sm">{card.label}</p>
-                  <p className="text-white/70 text-xs">{card.desc}</p>
-                </motion.div>
+            <section className="overflow-hidden rounded-[32px] border border-white/80 bg-white/78 shadow-[0_30px_110px_rgba(15,23,42,0.09)] backdrop-blur-3xl">
+              <div className="grid gap-0 lg:grid-cols-[1fr_300px]">
+                <div className="p-6 md:p-8 lg:p-10">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-emerald-800">
+                      <Sparkles size={14} />
+                      Today's Farm Intelligence
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">
+                      {today}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                      <MapPin size={13} />
+                      {locationLabel}
+                    </span>
+                  </div>
+
+                  <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-[1.04] tracking-tight text-slate-950 md:text-6xl">
+                    FarmSphere recommends one action before the next rain window.
+                  </h1>
+                  <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
+                    {locationName} is now the active farm context. The <span className="capitalize">{cropType}</span> crop status is stable, but humidity and rainfall are raising fungal risk.
+                    The AI is prioritizing inspection and timing over more field activity.
+                  </p>
+
+                  {/* Restored Temperature/Weather Grid */}
+                  <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { icon: CloudSun, label: "Weather", value: `${temp}°C`, sub: `${rainChance}% rain`, tone: "text-amber-600" },
+                      { icon: Sprout, label: "Crop Status", value: "Stable", sub: `field A`, tone: "text-emerald-700" },
+                      { icon: ShieldCheck, label: "Risk Score", value: "64", sub: "moderate", tone: "text-orange-600" },
+                      { icon: Satellite, label: "Satellite", value: ndvi, sub: "NDVI improving", tone: "text-blue-600" },
+                    ].map((item, index) => {
+                      const Icon = item.icon;
+                      return (
+                        <motion.div
+                          key={item.label}
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 + index * 0.06 }}
+                          className="rounded-2xl border border-slate-200/80 bg-white/70 p-4"
+                        >
+                          <Icon size={18} className={item.tone} strokeWidth={1.8} />
+                          <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                            {item.label}
+                          </p>
+                          <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
+                            {item.value}
+                          </p>
+                          <p className="text-sm font-medium text-slate-500">{item.sub}</p>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-8 rounded-3xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/50 p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <CloudSun className="text-emerald-600" size={20} />
+                      <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-emerald-900">Live Field Conditions</h3>
+                    </div>
+                    <p className="text-[15px] leading-relaxed text-slate-700 font-medium max-w-3xl">
+                      Your <strong className="text-emerald-700 capitalize">{cropType} crop</strong> remains structurally stable with an improving NDVI of <strong className="text-blue-600">{ndvi}</strong>. However, an upcoming <strong className="text-amber-600">{rainChance}% chance of rain</strong> at <strong className="text-amber-600">{temp}°C</strong> is actively elevating the fungal disease risk score to <strong className="text-orange-600">64 (moderate)</strong>. Immediate preventative action is recommended.
+                    </p>
+                  </div>
+
+                  <div className="mt-8 rounded-3xl bg-slate-950 p-5 text-white shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <p className="flex items-center gap-2 text-sm font-semibold text-emerald-200">
+                          <BrainCircuit size={17} />
+                          AI recommendation
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold tracking-tight">
+                          Inspect lower leaves and postpone spray until rainfall clears.
+                        </p>
+                      </div>
+                      <Link
+                        href="/chat"
+                        className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                      >
+                        Ask why
+                        <ArrowRight size={16} />
+                      </Link>
+                    </div>
+                    <div className="mt-6 grid gap-2 md:grid-cols-3">
+                      {actions.map((action) => (
+                        <Link key={action.title} href={action.href} className="group rounded-2xl border border-white/10 bg-white/[0.07] p-4 transition hover:bg-white/[0.12]">
+                          <span className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-200">
+                            {action.priority}
+                          </span>
+                          <p className="mt-2 text-sm font-semibold leading-6">{action.title}</p>
+                          <p className="mt-1 text-xs leading-5 text-white/55">{action.detail}</p>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <aside className="border-t border-slate-200/70 bg-slate-50/70 p-6 lg:border-l lg:border-t-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Live Agent Trace</p>
+                  <div className="mt-5 space-y-4">
+                    {agentFlow.map((agent, index) => (
+                      <motion.div
+                        key={agent}
+                        initial={{ opacity: 0, x: 12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.18 + index * 0.08 }}
+                        className="flex items-center gap-3"
+                      >
+                        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${index < 4 ? "bg-emerald-100 text-emerald-700" : "bg-white text-slate-400"}`}>
+                          {index < 4 ? <CheckCircle2 size={17} /> : <Radar size={17} />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-slate-800">{agent}</p>
+                          <p className="text-xs text-slate-500">{index < 4 ? "Completed" : "Monitoring"}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </aside>
+              </div>
+            </section>
+
+            <aside className="space-y-4">
+              <div className="rounded-[28px] border border-white/80 bg-white/72 p-5 shadow-[0_22px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Context Panel</p>
+                <div className="mt-4 space-y-3">
+                  {[
+                    ["Current crop", cropType],
+                    ["Location", contextLocation],
+                    ["Retrieved docs", "5 agronomy sources"],
+                    ["Memory", "Irrigation every 3 days"],
+                    ["Pending alerts", `${alertCount} active`],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm">
+                      <span className="text-slate-500">{label}</span>
+                      {label === "Current crop" ? (
+                        <div className="relative group flex items-center justify-center gap-1.5 rounded-full border border-emerald-200/60 bg-emerald-50/50 py-1 pl-3 pr-2 text-xs font-semibold shadow-sm transition hover:bg-emerald-100/50 cursor-pointer">
+                          <Sprout size={13} className="text-emerald-600" />
+                          <select
+                            value={value}
+                            onChange={(e) => setCropType(e.target.value)}
+                            className="appearance-none bg-transparent outline-none cursor-pointer capitalize text-left font-bold text-emerald-800 pr-4 z-10 font-sans"
+                          >
+                            {["tomato", "wheat", "rice", "cotton", "sugarcane"].map((c) => (
+                              <option key={c} value={c} className="font-sans text-sm text-slate-800 text-left">{c}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={13} className="absolute right-2 text-emerald-600/70 pointer-events-none" />
+                        </div>
+                      ) : label === "Location" ? (
+                        <div className="relative flex items-center justify-center gap-1.5 rounded-full border border-blue-200/60 bg-blue-50/50 py-1 pl-3 pr-3 text-xs font-semibold shadow-sm">
+                          <MapPin size={13} className="text-blue-600" />
+                          <span className="font-sans font-bold text-blue-800 max-w-[140px] truncate">
+                            {value}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="max-w-[55%] truncate text-right font-semibold text-slate-900">{value}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`rounded-[28px] border p-5 shadow-[0_22px_80px_rgba(15,23,42,0.07)] ${
+                alertCount > 0
+                  ? "border-amber-200/70 bg-amber-50/80"
+                  : "border-emerald-200/70 bg-emerald-50/80"
+              }`}>
+                <p className={`flex items-center gap-2 text-sm font-bold ${alertCount > 0 ? "text-amber-800" : "text-emerald-800"}`}>
+                  <AlertTriangle size={17} />
+                  Actual Alerts
+                </p>
+                {alertCount > 0 ? (
+                  <div className="mt-3 space-y-3">
+                    {alerts.map((alert, index) => (
+                      <div key={`${alert.title}-${index}`} className="rounded-2xl border border-white/70 bg-white/65 px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-bold text-slate-900">{alert.title}</p>
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold uppercase text-amber-700">
+                            {alert.severity}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">{alert.message}</p>
+                        <p className="mt-2 text-xs font-bold text-emerald-700">{alert.action}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm leading-6 text-emerald-800/75">
+                    No active weather, disease, pest, or market alerts for the current farm context.
+                  </p>
+                )}
+              </div>
+
+              <Link
+                href="/chat"
+                className="flex items-center justify-between rounded-[28px] bg-emerald-950 p-5 text-white shadow-[0_24px_80px_rgba(6,78,59,0.20)] transition hover:-translate-y-0.5"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-emerald-200">Open workspace</span>
+                  <span className="mt-1 block text-xl font-semibold">Talk to FarmSphere</span>
+                </span>
+                <MessageCircle size={24} />
               </Link>
-            ))}
+            </aside>
           </motion.div>
         </div>
       </main>

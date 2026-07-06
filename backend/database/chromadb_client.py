@@ -1,34 +1,34 @@
 """
 FarmSphere AI — ChromaDB Client
 Manages vector collections for RAG: ICAR docs, community knowledge, crop manuals.
+Uses PersistentClient — stores data in ./chroma_data/ with no server required.
 """
 import logging
+import os
 from typing import Optional
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from config import settings
 
 logger = logging.getLogger(__name__)
 
 # ── Client singleton ─────────────────────────────────────────────────────────
 
-_client: Optional[chromadb.AsyncHttpClient] = None
+_client: Optional[chromadb.PersistentClient] = None
+
+# Persist data next to this file: backend/chroma_data/
+_CHROMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "chroma_data")
 
 
-def get_chroma_client() -> chromadb.HttpClient:
+def get_chroma_client() -> chromadb.PersistentClient:
+    """Return a singleton PersistentClient that saves data to disk."""
     global _client
     if _client is None:
-        try:
-            _client = chromadb.HttpClient(
-                host=settings.chroma_host,
-                port=settings.chroma_port,
-                settings=ChromaSettings(anonymized_telemetry=False),
-            )
-            _client.heartbeat()
-            logger.info("ChromaDB connected at %s:%s", settings.chroma_host, settings.chroma_port)
-        except Exception as e:
-            logger.warning("ChromaDB unavailable (%s). Using in-memory fallback.", e)
-            _client = chromadb.Client()
+        os.makedirs(_CHROMA_PATH, exist_ok=True)
+        _client = chromadb.PersistentClient(
+            path=_CHROMA_PATH,
+            settings=ChromaSettings(anonymized_telemetry=False),
+        )
+        logger.info("ChromaDB persistent store ready at: %s", os.path.abspath(_CHROMA_PATH))
     return _client
 
 

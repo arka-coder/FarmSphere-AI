@@ -1,18 +1,32 @@
 "use client";
+
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useDropzone } from "react-dropzone";
-import { Upload, X, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
-import toast from "react-hot-toast";
-import Sidebar from "@/components/layout/Sidebar";
-import ConfidenceGauge from "@/components/chat/ConfidenceGauge";
-import SourceCards from "@/components/chat/SourceCards";
-import AgentTimeline from "@/components/chat/AgentTimeline";
-import { uploadImage, type ChatResponse } from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import toast from "react-hot-toast";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ImagePlus,
+  Loader2,
+  Microscope,
+  ScanLine,
+  ShieldCheck,
+  Sparkles,
+  Stethoscope,
+  X,
+} from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
+import TopNav from "@/components/layout/TopNav";
+import AgentTimeline from "@/components/chat/AgentTimeline";
+import ConfidenceGauge from "@/components/chat/ConfidenceGauge";
+import SourceCards from "@/components/chat/SourceCards";
+import { uploadImage, type ChatResponse } from "@/lib/api";
 
 const CROPS = ["Tomato", "Wheat", "Rice", "Potato", "Cotton", "Maize", "Sugarcane", "Onion", "Soybean"];
+const scanSteps = ["Gemini Vision", "Disease Agent", "Weather Agent", "Knowledge Retrieval", "Risk Assessment", "Explainability"];
 
 export default function DiseasePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -27,12 +41,14 @@ export default function DiseasePage() {
     setFile(f);
     setResult(null);
     const reader = new FileReader();
-    reader.onload = e => setPreview(e.target?.result as string);
+    reader.onload = (e) => setPreview(e.target?.result as string);
     reader.readAsDataURL(f);
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { "image/*": [] }, multiple: false,
+    onDrop,
+    accept: { "image/*": [] },
+    multiple: false,
   });
 
   const handleAnalyze = async () => {
@@ -42,7 +58,7 @@ export default function DiseasePage() {
       const data = await uploadImage(file, crop.toLowerCase());
       setResult(data);
       if (data.disease?.hitl_required) {
-        toast("Additional images needed for confident diagnosis", { icon: "⚠️", duration: 5000 });
+        toast("Additional images needed for confident diagnosis", { duration: 5000 });
       }
     } catch (e: any) {
       toast.error("Analysis failed: " + e.message);
@@ -51,161 +67,221 @@ export default function DiseasePage() {
     }
   };
 
-  return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto space-y-6">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              🔬 Disease Detection
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-              Upload a plant image for AI-powered disease diagnosis using Gemini Vision + ChromaDB RAG
-            </p>
-          </div>
+  const disease = result?.disease;
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Upload panel */}
-            <div className="space-y-4">
-              {/* Crop selector */}
+  return (
+    <div className="relative flex h-screen overflow-hidden bg-base">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,#f8fbf9_0%,#f1f7f3_42%,#fbf8ff_100%)]" />
+      <div className="absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_0%,rgba(124,58,237,0.12),transparent_48%)]" />
+      <Sidebar />
+
+      <main className="relative flex flex-1 flex-col overflow-hidden">
+        <TopNav />
+
+        <div className="flex-1 overflow-y-auto px-5 pb-10 pt-32 scrollbar-hide md:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="mx-auto max-w-7xl"
+          >
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-2">Select Crop</label>
-                <div className="flex flex-wrap gap-2">
-                  {CROPS.map(c => (
-                    <button key={c} onClick={() => setCrop(c)}
-                      className={`text-sm px-3 py-1.5 rounded-full border transition-all ${
+                <p className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">
+                  <Stethoscope size={14} />
+                  Crop Health Diagnosis
+                </p>
+                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 md:text-5xl">
+                  Upload a leaf. Watch FarmSphere localize the risk.
+                </h1>
+              </div>
+              <div className="rounded-full border border-white/80 bg-white/74 px-4 py-2 text-sm font-semibold text-slate-600 shadow-[0_12px_40px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
+                Human review triggered below 75% confidence
+              </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+              <section className="rounded-[32px] border border-white/80 bg-white/76 p-5 shadow-[0_28px_100px_rgba(15,23,42,0.10)] backdrop-blur-3xl md:p-7">
+                <div className="mb-5 flex flex-wrap gap-2">
+                  {CROPS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setCrop(c)}
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-violet-300 ${
                         crop === c
-                          ? "bg-farm-600 text-white border-farm-600 shadow-farm"
-                          : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-farm-400"
-                      }`}>
+                          ? "border-violet-600 bg-violet-600 text-white shadow-[0_10px_26px_rgba(124,58,237,0.18)]"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-violet-300 hover:text-violet-700"
+                      }`}
+                    >
                       {c}
                     </button>
                   ))}
                 </div>
-              </div>
 
-              {/* Drop zone */}
-              <div {...getRootProps()} className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                isDragActive ? "border-farm-500 bg-farm-50 dark:bg-farm-950/30" :
-                preview ? "border-farm-400 bg-farm-50/50 dark:bg-farm-950/20" :
-                "border-gray-200 dark:border-gray-700 hover:border-farm-400 bg-white dark:bg-gray-900"
-              }`}>
-                <input {...getInputProps()} />
-                <AnimatePresence mode="wait">
-                  {preview ? (
-                    <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <img src={preview} alt="Plant" className="max-h-48 rounded-xl mx-auto object-contain shadow" />
-                      <button onClick={e => { e.stopPropagation(); setFile(null); setPreview(null); setResult(null); }}
-                        className="mt-3 text-xs text-red-500 hover:text-red-700 flex items-center gap-1 mx-auto">
-                        <X size={12} /> Remove image
-                      </button>
-                    </motion.div>
-                  ) : (
-                    <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <Upload size={32} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Drop your plant image here
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">or click to browse · JPG, PNG, WEBP</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Analyze button */}
-              <motion.button
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                onClick={handleAnalyze}
-                disabled={!file || loading}
-                className="btn-farm w-full py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <><Loader2 size={18} className="animate-spin" /> Analyzing with Gemini Vision...</>
-                ) : (
-                  <><span>🔬</span> Analyze for Disease</>
-                )}
-              </motion.button>
-
-              {/* HITL note */}
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
-                <p className="text-xs text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertTriangle size={12} /> Human-in-the-Loop Safety
-                </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  If confidence is below 75%, FarmSphere will ask for additional images and recommend expert consultation.
-                </p>
-              </div>
-            </div>
-
-            {/* Results panel */}
-            <AnimatePresence>
-              {result && result.disease && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-4"
+                <div
+                  {...getRootProps()}
+                  className={`relative min-h-[460px] cursor-pointer overflow-hidden rounded-[30px] border-2 border-dashed transition ${
+                    isDragActive
+                      ? "border-violet-500 bg-violet-50"
+                      : preview
+                        ? "border-emerald-300 bg-slate-950"
+                        : "border-slate-300 bg-white/70 hover:border-violet-400"
+                  }`}
                 >
-                  {/* Severity badge */}
-                  <div className={`flex items-center gap-2 p-3 rounded-xl ${
-                    result.disease.hitl_required ? "alert-medium" :
-                    result.disease.severity === "severe" ? "alert-critical" :
-                    result.disease.severity === "moderate" ? "alert-high" : "alert-low"
-                  }`}>
-                    {result.disease.hitl_required ? <AlertTriangle size={16} /> : <CheckCircle size={16} />}
-                    <div>
-                      <p className="text-sm font-bold">{result.disease.name}</p>
-                      <p className="text-xs capitalize">{result.disease.severity} severity · {result.disease.hitl_required ? "Review needed" : "Confident diagnosis"}</p>
-                    </div>
-                  </div>
-
-                  {/* Confidence gauge */}
-                  <div className="glass-card bg-white dark:bg-gray-900 p-4">
-                    <ConfidenceGauge
-                      confidence={result.disease.confidence}
-                      label={result.disease.name}
-                      alternatives={result.disease.alternatives}
-                      size="md"
-                    />
-                  </div>
-
-                  {/* Response */}
-                  {result.response && (
-                    <div className="glass-card bg-white dark:bg-gray-900 p-4">
-                      <div className="prose-farm text-sm">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.response}</ReactMarkdown>
+                  <input {...getInputProps()} />
+                  {preview ? (
+                    <div className="relative h-[460px]">
+                      <img src={preview} alt="Uploaded crop sample" className="h-full w-full object-contain" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-slate-950/20" />
+                      {(loading || result) && (
+                        <>
+                          <motion.div
+                            className="absolute left-[18%] top-[22%] h-32 w-40 rounded-[46%] border-2 border-emerald-300/90 bg-emerald-300/10 shadow-[0_0_42px_rgba(110,231,183,0.45)]"
+                            animate={{ scale: [1, 1.05, 1], opacity: [0.72, 1, 0.72] }}
+                            transition={{ repeat: Infinity, duration: 1.8 }}
+                          />
+                          <motion.div
+                            className="absolute left-0 right-0 top-0 h-20 bg-gradient-to-b from-emerald-300/0 via-emerald-300/45 to-emerald-300/0"
+                            animate={{ y: [0, 410, 0] }}
+                            transition={{ repeat: Infinity, duration: 3.1, ease: "easeInOut" }}
+                          />
+                        </>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFile(null);
+                          setPreview(null);
+                          setResult(null);
+                        }}
+                        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg transition hover:bg-white"
+                        aria-label="Remove image"
+                      >
+                        <X size={18} />
+                      </button>
+                      <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center justify-between gap-3 text-white">
+                        <div>
+                          <p className="text-sm font-semibold text-white/70">Sample loaded</p>
+                          <p className="text-2xl font-semibold">{crop} leaf scan</p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAnalyze();
+                          }}
+                          disabled={!file || loading}
+                          className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-violet-50 disabled:opacity-60"
+                        >
+                          {loading ? <Loader2 size={18} className="animate-spin" /> : <ScanLine size={18} />}
+                          {loading ? "Scanning image" : "Run diagnosis"}
+                        </button>
                       </div>
                     </div>
-                  )}
-
-                  {/* Timeline */}
-                  {result.execution_timeline?.length > 0 && (
-                    <div className="glass-card bg-white dark:bg-gray-900 p-4">
-                      <AgentTimeline timeline={result.execution_timeline} />
+                  ) : (
+                    <div className="flex h-[460px] flex-col items-center justify-center p-8 text-center">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-violet-50 text-violet-600">
+                        <ImagePlus size={30} strokeWidth={1.7} />
+                      </div>
+                      <p className="mt-6 text-2xl font-semibold tracking-tight text-slate-950">
+                        Drop a clear crop image here
+                      </p>
+                      <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">
+                        FarmSphere will scan symptoms, compare alternative diagnoses, and explain the recommended treatment path.
+                      </p>
                     </div>
                   )}
-
-                  {/* Sources */}
-                  {result.source_documents?.length > 0 && (
-                    <div className="glass-card bg-white dark:bg-gray-900 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">📌 Sources</p>
-                      <SourceCards sources={result.source_documents} />
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {!result && !loading && (
-                <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                  <span className="text-5xl mb-4">🌿</span>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Upload a plant image to see AI diagnosis, confidence scores, and treatment recommendations here.
-                  </p>
                 </div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
+              </section>
+
+              <aside className="space-y-4">
+                <div className="rounded-[32px] border border-white/80 bg-white/76 p-5 shadow-[0_28px_100px_rgba(15,23,42,0.10)] backdrop-blur-3xl">
+                  <p className="flex items-center gap-2 text-sm font-bold text-slate-950">
+                    <Sparkles size={17} className="text-violet-600" />
+                    Diagnosis Intelligence
+                  </p>
+
+                  {loading && (
+                    <div className="mt-5 space-y-3">
+                      {scanSteps.map((step, index) => (
+                        <motion.div
+                          key={step}
+                          initial={{ opacity: 0, x: 12 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.08 }}
+                          className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-violet-50/70 px-4 py-3"
+                        >
+                          <span className="h-2.5 w-2.5 rounded-full bg-violet-500 shadow-[0_0_16px_rgba(124,58,237,0.7)]" />
+                          <span className="text-sm font-semibold text-violet-900">{step}</span>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!loading && !result && (
+                    <div className="mt-5 rounded-3xl border border-dashed border-slate-200 bg-white/70 p-6 text-center">
+                      <Microscope size={32} className="mx-auto text-slate-300" />
+                      <p className="mt-3 text-sm font-semibold text-slate-700">Awaiting image analysis</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-500">
+                        Results will include severity, confidence, reasoning, treatment timeline, and source evidence.
+                      </p>
+                    </div>
+                  )}
+
+                  <AnimatePresence>
+                    {disease && (
+                      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-5 space-y-4">
+                        <div className={`rounded-3xl border p-4 ${disease.hitl_required ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
+                          <p className="flex items-center gap-2 text-sm font-bold text-slate-950">
+                            {disease.hitl_required ? <AlertTriangle size={17} className="text-amber-600" /> : <CheckCircle2 size={17} className="text-emerald-700" />}
+                            {disease.name}
+                          </p>
+                          <p className="mt-1 text-sm capitalize text-slate-600">
+                            {disease.severity} severity · {disease.hitl_required ? "expert review advised" : "confident diagnosis"}
+                          </p>
+                        </div>
+
+                        <ConfidenceGauge confidence={disease.confidence} label={disease.name} alternatives={disease.alternatives} size="md" />
+
+                        <div className="rounded-3xl border border-slate-200 bg-white/70 p-4">
+                          <p className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950">
+                            <ShieldCheck size={17} className="text-emerald-700" />
+                            Treatment Timeline
+                          </p>
+                          {["Today: isolate affected leaves and photograph underside", "24-48h: apply recommended treatment after rain clears", "7 days: re-scan and compare symptom spread"].map((item) => (
+                            <p key={item} className="border-t border-slate-100 py-3 text-sm leading-6 text-slate-600 first:border-t-0 first:pt-0">
+                              {item}
+                            </p>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {result?.response && (
+                  <div className="rounded-[28px] border border-white/80 bg-white/76 p-5 shadow-[0_22px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl">
+                    <div className="prose-farm text-sm">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.response}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+
+                {result?.execution_timeline?.length ? (
+                  <div className="rounded-[28px] border border-white/80 bg-white/76 p-5 shadow-[0_22px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl">
+                    <AgentTimeline timeline={result.execution_timeline} />
+                  </div>
+                ) : null}
+
+                {result?.source_documents?.length ? (
+                  <div className="rounded-[28px] border border-white/80 bg-white/76 p-5 shadow-[0_22px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl">
+                    <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Knowledge Sources</p>
+                    <SourceCards sources={result.source_documents} />
+                  </div>
+                ) : null}
+              </aside>
+            </div>
+          </motion.div>
+        </div>
       </main>
     </div>
   );

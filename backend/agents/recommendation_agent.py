@@ -13,25 +13,36 @@ from agents.llm_helper import invoke_with_fallback
 
 logger = logging.getLogger(__name__)
 
-RECOMMENDATION_SYSTEM_PROMPT = """You are FarmSphere AI's final recommendation synthesizer.
-Combine all available agricultural intelligence into one clear, actionable response for the farmer.
+RECOMMENDATION_SYSTEM_PROMPT = """You are FarmSphere AI — a global agricultural intelligence assistant.
 
-STRUCTURE YOUR RESPONSE as follows (use markdown):
-## 🌱 Diagnosis (if disease detected)
-## 💊 Treatment Recommendations
-## 🌤️ Weather Advisory
-## ⚠️ Risk Alert
-## 📅 Immediate Actions (next 48 hours)
-## 📌 Sources
+## Non-Negotiable Rules:
+1. **ENGLISH ONLY** — always respond in English, regardless of the user's location or language
+2. **Be concise** — give precise, direct answers. No padding, no unnecessary repetition
+3. **Location-aware** — use the farmer's country/state/district to give locally relevant advice. If no location is provided, give general globally applicable guidance
+4. **Do not assume India** — only use India-specific references (APMC, MSP, ICAR, KVK, ₹) when the user's location is India
+5. **Never invent prices** — all price data is reference only; always tell users to verify locally
 
-RULES:
-1. Speak directly to the farmer in a supportive, confident tone
-2. Prioritize the most urgent actions first
-3. Always explain WHY you recommend something (the reasoning)
-4. Mention confidence scores where relevant
-5. If HITL is required, clearly ask for additional images
-6. Keep total response under 400 words
-7. Use farmer-friendly language (avoid heavy jargon)"""
+## Response Structure:
+Adapt structure to the query type. Keep total response under 300 words.
+
+**For farming/disease/agronomy queries:**
+- 🎯 **Answer** — 1-2 direct sentences
+- 📋 **Details** — bullet points, max 5 items
+- ✅ **Next Steps** — 2-3 actionable items
+- 📌 **Source** — 1-2 references (FAO / USDA / ICAR / local extension)
+
+**For market/price queries:**
+- 📊 **Price** — current reference price with source
+- 📍 **Where to sell** — local market/exchange options
+- 📈 **Trend** — brief market outlook (1-2 sentences)
+- ✅ **Recommendation** — sell now / wait / store
+
+## Location-Based References:
+- **India**: ICAR, APMC mandi, MSP, Agmarknet, eNAM, KVK, ₹/quintal
+- **USA**: USDA, CME/CBOT prices, Extension Service, $/bushel or $/ton
+- **UK/EU**: AHDB, EU CAP, Defra, £/tonne or €/tonne
+- **Africa**: FAO, local Ministry of Agriculture, local currency/unit
+- **No location**: FAO, globally applicable guidance, USD pricing"""
 
 HITL_TEMPLATE = """
 ## 🔍 Additional Information Needed
@@ -94,6 +105,26 @@ def recommendation_agent(state: FarmSphereState) -> dict:
         # Normal synthesis path
         intent = state.get("intent", "general_farming")
 
+        # ── Fast-path: pure market query — skip LLM, return market_advice directly ──
+        if intent in ("market_query", "price_query_statewise", "export_market"):
+            market_advice = state.get("market_advice", "")
+            if market_advice:
+                duration_ms = (time.time() - start_time) * 1000
+                trace = AgentTrace(
+                    agent_name="recommendation_agent",
+                    started_at=start_time,
+                    ended_at=time.time(),
+                    duration_ms=round(duration_ms, 2),
+                    status="success",
+                    output_summary="Market fast-path — direct price response",
+                )
+                return {
+                    "final_response": market_advice,
+                    "agent_traces": [trace],
+                    "agents_invoked": ["recommendation_agent"],
+                    "errors": [],
+                }
+
         if settings.google_api_key:
             try:
                 # Build context from all agents
@@ -142,12 +173,16 @@ def recommendation_agent(state: FarmSphereState) -> dict:
                 context = "\n\n".join(context_parts)
                 farmer_name = state.get("farmer_name", "Farmer")
                 crop = state.get("crop_type", "your crop")
+                location = state.get("location") or "Not specified"
+                country = state.get("country") or ""
 
                 full_prompt = (
-                    f"FARMER: {farmer_name} | CROP: {crop} | LOCATION: {state.get('location', 'India')}\n"
-                    f"FARMER QUESTION: {state.get('user_message', '')}\n\n"
-                    f"AVAILABLE INTELLIGENCE:\n{context}\n\n"
-                    f"CITED SOURCES: {', '.join(sources) or 'Internal knowledge base'}"
+                    f"FARMER: {farmer_name} | CROP: {crop} | "
+                    f"LOCATION: {location}{' | COUNTRY: ' + country if country else ''}\n"
+                    f"QUESTION: {state.get('user_message', '')}\n\n"
+                    f"AVAILABLE DATA:\n{context}\n\n"
+                    f"SOURCES AVAILABLE: {', '.join(sources) or 'Internal knowledge base'}\n\n"
+                    f"IMPORTANT: Respond in English only. Be concise."
                 )
 
                 ai_response = invoke_with_fallback(
@@ -201,30 +236,57 @@ def recommendation_agent(state: FarmSphereState) -> dict:
 
 
 def _build_fallback_response(state: FarmSphereState) -> str:
-    parts = ["# FarmSphere AI Recommendation\n"]
+    """Fallback when LLM synthesis fails — assembles all available agent data directly."""
+    parts = []
 
+    # Market data — most common failure case, show this prominently
+    if state.get("market_advice"):
+        parts.append(state["market_advice"])
+
+    # Knowledge context (disease treatment, crop advice, soil info)
+    elif state.get("knowledge_context"):
+        parts.append(state["knowledge_context"][:800])
+
+    # Disease diagnosis
     if state.get("disease_name"):
         conf = state.get("disease_confidence", 0)
-        parts.append(f"## 🌱 Diagnosis\n**{state['disease_name']}** (Confidence: {conf:.0%})\n")
+        parts.append(f"**Diagnosis**: {state['disease_name']} (Confidence: {conf:.0%})")
         if state.get("disease_symptoms"):
-            symptoms = "\n".join(f"• {s}" for s in state["disease_symptoms"])
-            parts.append(f"**Symptoms observed:**\n{symptoms}\n")
+            symptoms = ", ".join(state["disease_symptoms"])
+            parts.append(f"**Symptoms**: {symptoms}")
 
-    if state.get("knowledge_context"):
-        parts.append(f"## 💊 Treatment\n{state['knowledge_context'][:600]}\n")
-
+    # Weather
     if state.get("weather_advice"):
-        parts.append(f"## 🌤️ Weather Advisory\n{state['weather_advice']}\n")
+        parts.append(f"**Weather**: {state['weather_advice']}")
 
+    # Risk
     if state.get("risk_summary"):
-        parts.append(f"## ⚠️ Risk Alert\n{state['risk_summary']}\n")
+        parts.append(f"**Risk**: {state['risk_summary']}")
 
+    # Preventive actions
     if state.get("preventive_actions"):
         actions = "\n".join(f"• {a}" for a in state["preventive_actions"])
-        parts.append(f"## 📅 Immediate Actions\n{actions}\n")
+        parts.append(f"**Actions**:\n{actions}")
 
-    sources = list({doc["source"] for doc in (state.get("source_documents") or []) if doc.get("source")})
-    if sources:
-        parts.append(f"## 📌 Sources\n" + "\n".join(f"• {s}" for s in sources))
+    # If nothing at all
+    if not parts:
+        parts.append(
+            "I was unable to generate a complete response. "
+            "Please check your crop type and location, then try again."
+        )
 
-    return "\n".join(parts)
+    # Sources (deduplicated, no Nashik/state hardcoding)
+    unique_sources = []
+    seen = set()
+    for doc in (state.get("source_documents") or []):
+        src = doc.get("source", "")
+        # Strip generic mandi-location suffixes that add no value
+        clean = src.split(" — ")[0] if " — " in src else src
+        if clean and clean not in seen:
+            seen.add(clean)
+            unique_sources.append(clean)
+
+    if unique_sources:
+        parts.append("\n*Source: " + " | ".join(unique_sources) + "*")
+
+    return "\n\n".join(parts)

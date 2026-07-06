@@ -116,8 +116,9 @@ def weather_agent(state: FarmSphereState) -> dict:
                 logger.warning("Weather API call failed (%s) — using mock", e)
                 weather_data = MOCK_WEATHER_DATA
 
-        # Generate agricultural advice with Gemini
-        weather_advice = _generate_weather_advice(state, weather_data)
+        # Generate agricultural advice with Gemini (skip LLM if not weather_query intent)
+        skip_llm = state.get("intent") != "weather_query"
+        weather_advice = _generate_weather_advice(state, weather_data, skip_llm=skip_llm)
 
         source_doc = SourceDocument(
             title=f"Weather Data — {weather_data.get('location', 'Your Location')}",
@@ -166,7 +167,7 @@ def weather_agent(state: FarmSphereState) -> dict:
         }
 
 
-def _generate_weather_advice(state: FarmSphereState, weather: dict) -> str:
+def _generate_weather_advice(state: FarmSphereState, weather: dict, skip_llm: bool = False) -> str:
     """Generate crop-specific weather advice using Gemini."""
     # Rule-based fallback always computed first
     advice_parts = []
@@ -181,7 +182,7 @@ def _generate_weather_advice(state: FarmSphereState, weather: dict) -> str:
         advice_parts.append("🌡️ High temperature — ensure adequate irrigation and mulching.")
     rule_advice = " ".join(advice_parts) or "Weather conditions are favorable for farming activities."
 
-    if not settings.google_api_key:
+    if not settings.google_api_key or skip_llm:
         return rule_advice
 
     try:

@@ -194,13 +194,19 @@ export async function uploadImage(
   return res.json();
 }
 
-export async function getWeather(): Promise<WeatherData> {
-  const res = await fetch(`${API_BASE}/api/weather`);
+export async function getWeather(coords?: { lat: number; lon: number }): Promise<WeatherData> {
+  const query = coords
+    ? `?lat=${encodeURIComponent(coords.lat)}&lon=${encodeURIComponent(coords.lon)}`
+    : "";
+  const res = await fetch(`${API_BASE}/api/weather${query}`);
   return res.ok ? res.json() : Promise.reject("Weather unavailable");
 }
 
-export async function getAlerts(): Promise<{ alerts: Alert[] }> {
-  const res = await fetch(`${API_BASE}/api/alerts`);
+export async function getAlerts(coords?: { lat: number; lon: number }): Promise<{ alerts: Alert[] }> {
+  const query = coords
+    ? `?lat=${encodeURIComponent(coords.lat)}&lon=${encodeURIComponent(coords.lon)}`
+    : "";
+  const res = await fetch(`${API_BASE}/api/alerts${query}`);
   return res.ok ? res.json() : { alerts: [] };
 }
 

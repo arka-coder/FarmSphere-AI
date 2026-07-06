@@ -1,90 +1,89 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, MessageSquare, Leaf, CloudSun, TrendingUp,
-  FileText, Calendar, Satellite, Bell, Zap, Settings, ChevronRight,
+  Bell,
+  BookOpen,
+  CalendarDays,
+  Command,
+  LineChart,
+  MessageCircle,
+  Microscope,
+  Satellite,
+  Sparkles,
 } from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/chat", label: "AI Assistant", icon: MessageSquare },
-  { href: "/disease", label: "Disease Detection", icon: Leaf },
-  { href: "/weather", label: "Weather", icon: CloudSun },
-  { href: "/market", label: "Market Prices", icon: TrendingUp },
-  { href: "/schemes", label: "Govt. Schemes", icon: FileText },
-  { href: "/calendar", label: "Crop Calendar", icon: Calendar },
-  { href: "/satellite", label: "Satellite View", icon: Satellite },
-  { href: "/alerts", label: "Alerts", icon: Bell, badge: 3 },
-  { href: "/simulation", label: "What-If Simulator", icon: Zap, highlight: true },
+  { href: "/dashboard", label: "Home", icon: Command },
+  { href: "/chat", label: "AI Assistant", icon: MessageCircle },
+  { href: "/disease", label: "Crop Health", icon: Microscope },
+  { href: "/satellite", label: "Satellite", icon: Satellite },
+  { href: "/market", label: "Market", icon: LineChart },
+  { href: "/calendar", label: "Planner", icon: CalendarDays },
+  { href: "/schemes", label: "Knowledge", icon: BookOpen },
+  { href: "/alerts", label: "Alerts", icon: Bell },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 min-h-screen bg-farm-gradient flex flex-col relative overflow-hidden">
-      {/* Decorative circles */}
-      <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-white/5" />
-      <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white/5" />
-
-      {/* Logo */}
-      <div className="p-6 pb-4 relative">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center text-2xl shadow-lg">
-            🌾
-          </div>
-          <div>
-            <p className="font-display font-bold text-white text-lg leading-none">FarmSphere</p>
-            <p className="text-farm-300 text-xs mt-0.5 font-medium">AI Platform</p>
-          </div>
+    <motion.aside
+      initial={{ y: -18, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      className="pointer-events-none fixed inset-x-0 top-5 z-50 flex justify-center px-4"
+    >
+      <div className="pointer-events-auto flex w-fit max-w-[1080px] items-center gap-2 rounded-[28px] border border-white/75 bg-white/72 pl-3 pr-5 py-2 shadow-[0_18px_70px_rgba(15,23,42,0.10),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-2xl">
+        <Link
+          href="/dashboard"
+          className="mr-[28px] flex h-[34px] shrink-0 items-center gap-2 rounded-[14px] border border-white/[0.08] bg-gradient-to-b from-[#101418] via-[#0B1512] to-[#07100D] pl-1.5 pr-3 text-white shadow-[0_2px_10px_rgba(0,0,0,0.1),0_8px_30px_rgba(0,0,0,0.05)] transition hover:brightness-110"
+          aria-label="FarmSphere AI home"
+        >
+          <motion.div
+            initial={{ filter: "drop-shadow(0 0 10px rgba(52,211,153,0.7))" }}
+            animate={{ filter: "drop-shadow(0 0 0px rgba(52,211,153,0))" }}
+            transition={{ duration: 3, ease: "easeOut" }}
+            className="flex h-6 w-6 items-center justify-center rounded-[8px] bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
+          >
+            <Sparkles size={15} className="text-emerald-400" strokeWidth={1.5} />
+          </motion.div>
+          <span className="hidden font-serif text-[13.5px] font-normal tracking-[0.03em] text-slate-100 sm:inline">
+            FarmSphere AI
+          </span>
         </Link>
-      </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-2 space-y-0.5">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-          return (
-            <Link key={item.href} href={item.href}>
-              <motion.div
-                whileHover={{ x: 3 }}
-                whileTap={{ scale: 0.98 }}
-                className={`sidebar-item group ${isActive ? "active" : ""} ${item.highlight ? "border border-harvest-400/40 bg-harvest-400/10 hover:bg-harvest-400/20" : ""}`}
-              >
-                <Icon size={17} className={item.highlight ? "text-harvest-400" : ""} />
-                <span className={item.highlight ? "text-harvest-300" : ""}>{item.label}</span>
-                {item.badge && (
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
-                    {item.badge}
-                  </span>
-                )}
-                {item.highlight && (
-                  <span className="ml-auto text-harvest-400 text-xs font-bold">⭐</span>
-                )}
-              </motion.div>
-            </Link>
-          );
-        })}
-      </nav>
+        <nav className="flex items-center gap-1" aria-label="Primary">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-      {/* Bottom section */}
-      <div className="p-4 border-t border-white/10">
-        <div className="glass-card-dark p-3 rounded-xl">
-          <p className="text-xs text-farm-300 font-medium mb-1">Powered by</p>
-          <p className="text-white text-sm font-semibold">Gemini 2.0 Flash</p>
-          <p className="text-farm-400 text-xs">17 AI Agents Active</p>
-          <div className="mt-2 flex gap-1">
-            {["LangGraph", "ChromaDB", "GEE"].map((tag) => (
-              <span key={tag} className="text-xs bg-white/10 text-white px-1.5 py-0.5 rounded-md">
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
+            return (
+              <Link key={item.href} href={item.href} className="shrink-0">
+                <motion.div
+                  whileTap={{ scale: 0.98 }}
+                  className={`group relative flex h-10 items-center gap-2 rounded-[14px] px-3 text-[13px] transition-all duration-200 ease-out hover:-translate-y-[1px] ${
+                    isActive
+                      ? "text-emerald-800 opacity-100 font-bold"
+                      : "text-slate-500 opacity-80 font-semibold hover:bg-slate-50/80 hover:text-slate-800 hover:opacity-100"
+                  }`}
+                >
+                  <Icon
+                    size={17}
+                    strokeWidth={1.8}
+                    className={isActive ? "text-emerald-700" : "text-slate-400 group-hover:text-emerald-700"}
+                  />
+                  <span className="hidden whitespace-nowrap lg:inline">{item.label}</span>
+                </motion.div>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
-    </aside>
+    </motion.aside>
   );
 }

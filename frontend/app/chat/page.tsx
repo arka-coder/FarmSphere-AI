@@ -1,47 +1,48 @@
 "use client";
+
+import { useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
+import TopNav from "@/components/layout/TopNav";
 import ChatWindow from "@/components/chat/ChatWindow";
+import { useFarm } from "@/contexts/FarmContext";
 import { motion } from "framer-motion";
 
 export default function ChatPage() {
-  return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-farm-900 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-farm-gradient flex items-center justify-center text-xl shadow-farm">
-              🌾
-            </div>
-            <div>
-              <h1 className="font-display font-bold text-gray-900 dark:text-white">FarmSphere AI Assistant</h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="w-2 h-2 bg-farm-500 rounded-full animate-pulse" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  17 agents active · Gemini 2.0 Flash · ChromaDB RAG · LangGraph
-                </p>
-              </div>
-            </div>
-            <div className="ml-auto flex gap-2">
-              {["Disease", "Weather", "Market", "Simulation"].map((tag) => (
-                <span key={tag} className="hidden md:block text-xs bg-farm-50 dark:bg-farm-950/50 text-farm-700 dark:text-farm-300 border border-farm-200 dark:border-farm-800 px-2.5 py-1 rounded-full font-medium">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+  const { cropType, location } = useFarm();
+  const [activeAgent, setActiveAgent] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(false);
 
-        {/* Chat window */}
-        <div className="flex-1 overflow-hidden">
-          <ChatWindow
-            farmerName="Farmer"
-            cropType="tomato"
-            location="Nashik, Maharashtra"
-          />
+  return (
+    <div className="relative flex h-screen overflow-hidden bg-base">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,#f8fbf9_0%,#eef8f2_48%,#f7faff_100%)]" />
+      <div className="absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.16),transparent_48%)]" />
+      <Sidebar />
+
+      <main className="relative flex flex-1 flex-col overflow-hidden">
+        <TopNav />
+
+        <div className="flex-1 overflow-hidden px-5 pb-6 pt-24 md:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              className="mx-auto flex h-full max-w-4xl flex-col"
+            >
+              <div className="min-h-0 flex-1">
+                <ChatWindow 
+                  farmerName="Farmer" 
+                  cropType={cropType} 
+                  location={location} 
+                  onAgentUpdate={(agent, loading) => {
+                    setActiveAgent(agent);
+                    if (loading !== undefined) setIsLoading(loading);
+                  }}
+                />
+              </div>
+            </motion.div>
         </div>
       </main>
     </div>
   );
 }
+

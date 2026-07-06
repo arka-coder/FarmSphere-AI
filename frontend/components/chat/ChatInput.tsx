@@ -2,35 +2,29 @@
 import { useState, useRef, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Mic, Image, X, Globe, Loader2 } from "lucide-react";
+import {
+  Send, ImagePlus, X, Loader2, Microscope,
+  CloudSun, TrendingUp, Zap, Shield, Globe,
+} from "lucide-react";
 
 interface Props {
   onSend: (message: string, imageFile?: File) => void;
   isLoading: boolean;
-  language: string;
-  onLanguageChange: (lang: string) => void;
 }
 
-const LANGUAGES = [
-  { code: "en", label: "English", flag: "🇬🇧" },
-  { code: "hi", label: "हिंदी", flag: "🇮🇳" },
-  { code: "bn", label: "বাংলা", flag: "🇧🇩" },
-];
-
 const QUICK_PROMPTS = [
-  "🔬 Identify this plant disease",
-  "🌤️ Weather advisory for my crop",
-  "📈 Current tomato prices",
-  "🔮 What if rainfall doubles?",
-  "📋 PM-KISAN eligibility",
-  "⚠️ Check my crop risks",
+  { icon: Microscope,  label: "Identify disease",         prompt: "Please analyze this plant image for disease" },
+  { icon: CloudSun,    label: "Weather advisory",         prompt: "What's the weather advisory for my crop today?" },
+  { icon: TrendingUp,  label: "Market prices",            prompt: "What are the current market prices for my crop?" },
+  { icon: Zap,         label: "What-If simulation",       prompt: "What if rainfall doubles next week for my crop?" },
+  { icon: Shield,      label: "Check crop risks",         prompt: "Assess the current risks for my farm" },
+  { icon: Globe,       label: "Government schemes",       prompt: "What government schemes am I eligible for?" },
 ];
 
-export default function ChatInput({ onSend, isLoading, language, onLanguageChange }: Props) {
+export default function ChatInput({ onSend, isLoading }: Props) {
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [showLangPicker, setShowLangPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const onDrop = useCallback((accepted: File[]) => {
@@ -54,6 +48,9 @@ export default function ChatInput({ onSend, isLoading, language, onLanguageChang
     setText("");
     setImageFile(null);
     setImagePreview(null);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -65,38 +62,41 @@ export default function ChatInput({ onSend, isLoading, language, onLanguageChang
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
-    // Auto-resize
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + "px";
     }
   };
 
+  const canSend = !isLoading && (text.trim().length > 0 || imageFile !== null);
+
   return (
-    <div className="space-y-3">
-      {/* Quick prompts */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {QUICK_PROMPTS.map((p) => (
-          <button
-            key={p}
-            onClick={() => { setText(p.slice(2).trim()); textareaRef.current?.focus(); }}
-            className="shrink-0 text-xs bg-farm-50 dark:bg-farm-950/50 text-farm-700 dark:text-farm-300
-                       border border-farm-200 dark:border-farm-800 px-3 py-1.5 rounded-full
-                       hover:bg-farm-100 dark:hover:bg-farm-900/50 transition-colors whitespace-nowrap"
-          >
-            {p}
-          </button>
-        ))}
+    <div className="space-y-4">
+      {/* Quick prompt chips */}
+      <div className="flex flex-wrap gap-2.5 pb-1">
+        {QUICK_PROMPTS.map((p) => {
+          const Icon = p.icon;
+          return (
+            <button
+              key={p.label}
+              onClick={() => { setText(p.prompt); textareaRef.current?.focus(); }}
+              className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-full transition-all whitespace-nowrap bg-white text-slate-600 border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 hover:text-emerald-700 hover:bg-emerald-50/50"
+            >
+              <Icon size={12} strokeWidth={2} />
+              {p.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Drop zone wrapper */}
+      {/* Main input container */}
       <div
         {...getRootProps()}
-        className={`relative rounded-2xl border-2 transition-all ${
-          isDragActive
-            ? "border-farm-500 bg-farm-50 dark:bg-farm-950/50"
-            : "border-gray-200 dark:border-farm-800 bg-white dark:bg-gray-900"
-        }`}
+        className="relative rounded-[28px] transition-all bg-white shadow-sm"
+        style={{
+          border: isDragActive ? "2px solid var(--emerald)" : "1px solid rgba(0,0,0,0.06)",
+          boxShadow: isDragActive ? "0 0 0 4px rgba(34,197,94,0.1), 0 4px 20px rgba(0,0,0,0.05)" : "0 4px 20px rgba(0,0,0,0.03)",
+        }}
       >
         <input {...getInputProps()} />
 
@@ -107,29 +107,32 @@ export default function ChatInput({ onSend, isLoading, language, onLanguageChang
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="p-3 border-b border-gray-100 dark:border-farm-900"
+              className="px-4 pt-4"
             >
-              <div className="relative inline-block">
-                <img src={imagePreview} alt="Upload preview" className="h-24 rounded-xl object-cover shadow" />
+              <div className="relative inline-flex items-center gap-3 p-2.5 rounded-2xl bg-emerald-50 border border-emerald-100 shadow-sm">
+                <img src={imagePreview} alt="Upload" className="h-16 w-16 rounded-xl object-cover shadow-sm" />
+                <div className="pr-4">
+                  <p className="text-sm font-bold text-emerald-800">Disease Scan Ready</p>
+                  <p className="text-xs font-medium text-emerald-600 mt-0.5">
+                    {imageFile?.name ?? "image.jpg"}
+                  </p>
+                </div>
                 <button
                   onClick={() => { setImageFile(null); setImagePreview(null); }}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center shadow"
+                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center bg-rose-500 shadow-sm border-2 border-white hover:scale-110 transition-transform"
                 >
-                  <X size={10} />
+                  <X size={12} className="text-white" strokeWidth={2.5} />
                 </button>
-                <span className="absolute -bottom-1.5 left-0 right-0 text-center text-xs bg-farm-600 text-white rounded-full px-2">
-                  🔬 Disease Scan Ready
-                </span>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Input row */}
-        <div className="flex items-end gap-2 p-3">
-          {/* Image upload button */}
-          <label className="p-2 rounded-xl text-gray-400 hover:text-farm-600 hover:bg-farm-50 dark:hover:bg-farm-950 cursor-pointer transition-colors">
-            <Image size={20} />
+        {/* Textarea + controls */}
+        <div className="flex items-end gap-3 px-4 py-3 min-h-[64px]">
+          {/* Image upload */}
+          <label className="p-2.5 rounded-xl cursor-pointer transition-all shrink-0 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 mb-0.5">
+            <ImagePlus size={20} strokeWidth={2} />
             <input type="file" accept="image/*" className="hidden"
               onChange={e => { if (e.target.files?.[0]) onDrop([e.target.files[0]]); }} />
           </label>
@@ -141,75 +144,49 @@ export default function ChatInput({ onSend, isLoading, language, onLanguageChang
             onChange={handleTextareaChange}
             onKeyDown={handleKey}
             placeholder={
-              isDragActive ? "Drop your plant image here..." :
-              language === "hi" ? "अपना प्रश्न यहाँ लिखें..." :
-              language === "bn" ? "আপনার প্রশ্ন এখানে লিখুন..." :
-              "Ask about your crops, diseases, weather, markets..."
+              isDragActive ? "Drop your plant image here…" :
+              "Ask about crops, diseases, weather, markets…"
             }
             rows={1}
-            className="flex-1 resize-none bg-transparent text-sm text-gray-800 dark:text-white
-                       placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none
-                       leading-relaxed py-1 min-h-[36px] max-h-[120px]"
+            disabled={isLoading}
+            className="flex-1 resize-none bg-transparent text-base font-medium leading-relaxed py-2 min-h-[40px] max-h-[120px] focus:outline-none text-slate-800 placeholder:text-slate-400"
           />
-
-          {/* Language picker */}
-          <div className="relative">
-            <button
-              onClick={() => setShowLangPicker(prev => !prev)}
-              className="p-2 rounded-xl text-gray-400 hover:text-farm-600 hover:bg-farm-50 dark:hover:bg-farm-950 transition-colors"
-            >
-              <Globe size={20} />
-            </button>
-            <AnimatePresence>
-              {showLangPicker && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-10"
-                >
-                  {LANGUAGES.map(lang => (
-                    <button
-                      key={lang.code}
-                      onClick={() => { onLanguageChange(lang.code); setShowLangPicker(false); }}
-                      className={`flex items-center gap-2 w-full px-4 py-2 text-sm text-left hover:bg-farm-50 dark:hover:bg-farm-950 transition-colors ${
-                        language === lang.code ? "text-farm-600 font-semibold bg-farm-50 dark:bg-farm-950" : "text-gray-700 dark:text-gray-200"
-                      }`}
-                    >
-                      <span>{lang.flag}</span>
-                      <span>{lang.label}</span>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
 
           {/* Send button */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleSend}
-            disabled={isLoading || (!text.trim() && !imageFile)}
-            className="btn-farm p-2.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!canSend}
+            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all mb-0.5"
+            style={{
+              background: canSend ? "linear-gradient(135deg, var(--emerald), var(--primary-green))" : "#f1f5f9",
+              boxShadow: canSend ? "0 8px 16px -4px rgba(34,197,94,0.3)" : "none",
+              cursor: canSend ? "pointer" : "not-allowed",
+            }}
           >
-            {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            {isLoading
+              ? <Loader2 size={20} className="animate-spin text-slate-400" />
+              : <Send size={20} style={{ color: canSend ? "white" : "#94a3b8" }} strokeWidth={2.5} className="ml-1" />
+            }
           </motion.button>
         </div>
 
         {/* Drag overlay */}
         {isDragActive && (
-          <div className="absolute inset-0 bg-farm-500/10 border-2 border-farm-500 rounded-2xl flex items-center justify-center">
+          <div className="absolute inset-0 rounded-[28px] flex items-center justify-center bg-emerald-50/90 backdrop-blur-sm border-2 border-dashed border-emerald-400 z-10">
             <div className="text-center">
-              <p className="text-2xl mb-1">🌿</p>
-              <p className="text-sm font-semibold text-farm-700">Drop plant image for disease scan</p>
+              <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center mx-auto mb-3 shadow-sm text-emerald-500">
+                <ImagePlus size={32} strokeWidth={2} />
+              </div>
+              <p className="text-lg font-bold text-emerald-800">Drop plant image for disease scan</p>
             </div>
           </div>
         )}
       </div>
 
-      <p className="text-center text-xs text-gray-400">
-        Drag & drop a leaf/fruit image for instant disease detection · Press Enter to send
+      <p className="text-center text-xs font-semibold text-slate-400 mt-2">
+        FarmSphere Intelligence can make mistakes. Check important information.
       </p>
     </div>
   );

@@ -2,6 +2,18 @@
 FarmSphere AI — FastAPI Application Entry Point
 All routes, middleware, startup, and SSE streaming.
 """
+# ── Path fix ─────────────────────────────────────────────────────────────────
+# Ensures this module works whether run from the project root
+#   (python -m uvicorn backend.main:app)
+# or from within the backend directory
+#   (uvicorn main:app)
+import sys
+import os
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+# ─────────────────────────────────────────────────────────────────────────────
+
 import time
 import uuid
 import json
@@ -87,12 +99,13 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     farmer_id: Optional[str] = None
     farmer_name: Optional[str] = "Farmer"
-    location: Optional[str] = None
+    location: Optional[str] = None       # Free-text location (city, region)
     district: Optional[str] = None
+    state: Optional[str] = None          # State/province
+    country: Optional[str] = None        # Country — for global context
     crop_type: Optional[str] = None
     season: Optional[str] = None
-    language: str = Field(default="en", pattern="^(en|hi|bn)$")
-    image_base64: Optional[str] = None  # base64-encoded image for disease detection
+    image_base64: Optional[str] = None   # base64-encoded image for disease detection
 
 
 class FarmerCreate(BaseModel):
@@ -109,14 +122,20 @@ class FarmerCreate(BaseModel):
 # ── Helper: Build initial state ───────────────────────────────────────────────
 
 def build_initial_state(req: ChatRequest) -> dict:
+    # Build a readable location string from available fields
+    location_parts = [p for p in [req.district, req.state, req.country or req.location] if p]
+    location_str = ", ".join(location_parts) if location_parts else None
+
     return {
         "farmer_id": req.farmer_id or f"anon_{uuid.uuid4().hex[:8]}",
         "farmer_name": req.farmer_name or "Farmer",
-        "location": req.location,
+        "location": location_str,
         "district": req.district,
+        "state_name": req.state,
+        "country": req.country,
         "crop_type": req.crop_type,
         "season": req.season,
-        "language": req.language,
+        "language": "en",                 # English only
         "user_message": req.message,
         "image_base64": req.image_base64,
         "image_path": None,
@@ -173,8 +192,19 @@ async def chat(req: ChatRequest):
         langgraph_app = get_langgraph_app()
         initial_state = build_initial_state(req)
 
-        # Run LangGraph workflow
-        final_state = langgraph_app.invoke(initial_state)
+        # Run the synchronous LangGraph pipeline in a thread pool
+        # so we don't block FastAPI's async event loop.
+        loop = asyncio.get_event_loop()
+        try:
+            final_state = await asyncio.wait_for(
+                loop.run_in_executor(None, langgraph_app.invoke, initial_state),
+                timeout=120.0,
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(
+                status_code=504,
+                detail="Request timed out — AI pipeline took too long. Please try again.",
+            )
 
         # Run evaluation
         evaluation = run_full_evaluation(final_state)
@@ -332,7 +362,6 @@ async def upload_image(
     file: UploadFile = File(...),
     farmer_id: str = Form(default="anonymous"),
     crop_type: str = Form(default="unknown"),
-    language: str = Form(default="en"),
     farmer_name: str = Form(default="Farmer"),
 ):
     """Upload plant image for disease detection."""
@@ -350,7 +379,6 @@ async def upload_image(
         farmer_id=farmer_id,
         farmer_name=farmer_name,
         crop_type=crop_type,
-        language=language,
         image_base64=image_b64,
     )
     return await chat(req)
@@ -393,21 +421,105 @@ async def get_farmer(farmer_id: str):
         raise HTTPException(status_code=503, detail=f"Database unavailable: {str(e)}")
 
 
-# ── Market Data ───────────────────────────────────────────────────────────────
+# ── Market Data ──────────────────────────────────────────────────────────
 
 @app.get("/api/market", tags=["Market"])
-async def get_market_data(crop: Optional[str] = None):
-    """Get current market prices for crops."""
+async def get_market_data(crop: Optional[str] = None, state: Optional[str] = None):
+    """Get current market prices for crops (national average or state-specific)."""
     from agents.supporting_agents import MOCK_MARKET_DATA
+    from agents.agriculture_kb import NATIONAL_BASELINE_PRICES, get_statewise_price, get_msp
     if crop:
-        data = MOCK_MARKET_DATA.get(crop.lower())
-        if not data:
+        crop_key = crop.lower()
+        if state:
+            data = get_statewise_price(crop_key, state)
+        else:
+            data = MOCK_MARKET_DATA.get(crop_key) or {
+                "price_per_quintal": NATIONAL_BASELINE_PRICES.get(crop_key, 0),
+                "unit": "quintal"
+            }
+        if not data or not data.get("price_per_quintal"):
             raise HTTPException(status_code=404, detail=f"No market data for crop: {crop}")
-        return {"crop": crop, **data}
+        msp = get_msp(crop_key)
+        return {"crop": crop, "state": state, **data, "msp_2024_25": msp}
     return {"markets": MOCK_MARKET_DATA}
 
 
-# ── Government Schemes ────────────────────────────────────────────────────────
+@app.get("/api/market/statewise", tags=["Market"])
+async def get_statewise_market_data(crop: str, state: Optional[str] = None):
+    """
+    Get prices for a crop across all states, or for a specific state.
+    Example: GET /api/market/statewise?crop=wheat
+             GET /api/market/statewise?crop=onion&state=Maharashtra
+    """
+    from agents.agriculture_kb import (
+        NATIONAL_BASELINE_PRICES, STATE_PRICE_MULTIPLIERS,
+        STATE_MAJOR_MANDIS, get_statewise_price, get_msp,
+    )
+    crop_key = crop.lower().strip()
+    if crop_key not in NATIONAL_BASELINE_PRICES:
+        raise HTTPException(status_code=404, detail=f"Crop '{crop}' not found in price database.")
+
+    if state:
+        data = get_statewise_price(crop_key, state)
+        msp = get_msp(crop_key)
+        return {"crop": crop, "state": state, **data, "msp_2024_25": msp}
+
+    # Return all states
+    national_avg = NATIONAL_BASELINE_PRICES[crop_key]
+    msp = get_msp(crop_key)
+    states_data = {}
+    for state_name, multipliers in STATE_PRICE_MULTIPLIERS.items():
+        m = multipliers.get(crop_key, 1.0)
+        price = round(national_avg * m)
+        mandis = STATE_MAJOR_MANDIS.get(state_name, {})
+        states_data[state_name] = {
+            "price_per_quintal": price,
+            "major_mandi": mandis.get(crop_key, mandis.get("default", "Nearest APMC")),
+        }
+
+    return {
+        "crop": crop,
+        "national_average_per_quintal": national_avg,
+        "msp_2024_25": msp,
+        "states": states_data,
+        "source": "Agmarknet / eNAM reference data 2024",
+        "note": "Prices are reference rates. Verify before selling at agmarknet.gov.in or enam.gov.in",
+    }
+
+
+@app.get("/api/market/msp", tags=["Market"])
+async def get_msp_data(crop: Optional[str] = None, season: Optional[str] = None):
+    """
+    Get Minimum Support Prices (MSP) for 2024-25.
+    Source: DAC&FW Cabinet Approval 2024.
+    Example: GET /api/market/msp
+             GET /api/market/msp?crop=wheat
+             GET /api/market/msp?season=rabi
+    """
+    from agents.agriculture_kb import MSP_2024_25, get_msp
+    if crop:
+        result = get_msp(crop)
+        if not result:
+            raise HTTPException(
+                status_code=404,
+                detail=f"MSP not available for '{crop}'. Only government-notified MSP crops are listed."
+            )
+        return result
+    if season:
+        filtered = {k: v for k, v in MSP_2024_25.items() if v.get("season") == season.lower()}
+        return {
+            "season": season, "msp_crops": filtered,
+            "count": len(filtered), "source": "DAC&FW Cabinet Approval 2024",
+        }
+    return {
+        "msp_2024_25": MSP_2024_25,
+        "total_crops": len(MSP_2024_25),
+        "source": "Department of Agriculture & Farmers Welfare (DAC&FW) — Cabinet Approval 2024",
+        "reference": "https://agricoop.nic.in/en/pricePolicy",
+    }
+
+
+# ── Government Schemes ────────────────────────────────────────────────
 
 @app.get("/api/schemes", tags=["Schemes"])
 async def get_schemes(category: Optional[str] = None):
@@ -417,6 +529,102 @@ async def get_schemes(category: Optional[str] = None):
         filtered = [s for s in SCHEMES_DB if s.get("category") == category]
         return {"schemes": filtered, "count": len(filtered)}
     return {"schemes": SCHEMES_DB, "count": len(SCHEMES_DB)}
+
+
+# ── Crop Information (Encyclopaedia) ───────────────────────────────────────
+
+@app.get("/api/crops/info", tags=["Crop Information"])
+async def get_crop_info(
+    crop: str,
+    section: Optional[str] = None,
+):
+    """
+    Get encyclopaedic information for a crop from the Agriculture Knowledge Base.
+    Optional ?section= filter: 'diseases', 'pests', 'varieties', 'nutrients', 'agronomy'
+    Example: GET /api/crops/info?crop=wheat
+             GET /api/crops/info?crop=rice&section=diseases
+    """
+    from agents.agriculture_kb import CROP_ENCYCLOPEDIA, get_crop_info as kb_get_crop_info
+    crop_data = kb_get_crop_info(crop)
+    if not crop_data:
+        available = list(CROP_ENCYCLOPEDIA.keys())
+        raise HTTPException(
+            status_code=404,
+            detail=f"Crop '{crop}' not found. Available crops: {', '.join(available)}"
+        )
+    if section:
+        section_map = {
+            "diseases": "major_diseases",
+            "pests": "major_pests",
+            "varieties": "major_varieties",
+            "nutrients": "nutrient_requirements_kg_per_ha",
+            "agronomy": None,  # return full for agronomy
+        }
+        field = section_map.get(section.lower())
+        if field and field in crop_data:
+            return {"crop": crop, "section": section, "data": crop_data[field]}
+        elif section.lower() == "agronomy":
+            agronomy_fields = [
+                "optimal_temperature_c", "annual_rainfall_mm", "soil_ph", "soil_types",
+                "growth_duration_days", "growth_stages", "water_requirement_mm",
+                "critical_irrigation_stages", "yield_potential_t_per_ha",
+            ]
+            return {"crop": crop, "section": "agronomy", "data": {k: crop_data.get(k) for k in agronomy_fields if crop_data.get(k)}}
+    return {
+        "crop": crop,
+        "data": crop_data,
+        "source": crop_data.get("icar_source", "ICAR Knowledge Base"),
+    }
+
+
+@app.get("/api/crops/list", tags=["Crop Information"])
+async def list_crops():
+    """List all crops available in the Agriculture Knowledge Base."""
+    from agents.agriculture_kb import CROP_ENCYCLOPEDIA, NATIONAL_BASELINE_PRICES
+    return {
+        "encyclopaedia_crops": list(CROP_ENCYCLOPEDIA.keys()),
+        "price_database_crops": list(NATIONAL_BASELINE_PRICES.keys()),
+        "total_encyclopaedia": len(CROP_ENCYCLOPEDIA),
+        "total_price_database": len(NATIONAL_BASELINE_PRICES),
+    }
+
+
+# ── Plant Science Expert ─────────────────────────────────────────────────
+
+class PlantScienceRequest(BaseModel):
+    question: str = Field(..., min_length=5, max_length=2000)
+    crop: Optional[str] = None
+    location: Optional[str] = None
+
+
+@app.post("/api/plant-science", tags=["Plant Science"])
+async def plant_science_query(req: PlantScienceRequest):
+    """
+    Deep plant science expert endpoint.
+    Handles: photosynthesis (C3/C4/CAM), mycorrhiza, biofertilizers,
+    plant growth regulators, allelopathy, companion planting, seed science.
+    Example: POST /api/plant-science
+             Body: {"question": "Explain C4 photosynthesis in sugarcane", "crop": "sugarcane"}
+    """
+    from agents.plant_science_agent import query_plant_science
+    loop = asyncio.get_event_loop()
+    try:
+        answer = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                query_plant_science,
+                req.question, req.crop or "", req.location or "India"
+            ),
+            timeout=30.0,
+        )
+        return {
+            "question": req.question,
+            "crop": req.crop,
+            "answer": answer,
+            "source": "ICAR-IARI New Delhi / FarmSphere Plant Science KB",
+        }
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Plant science query timed out. Please try again.")
 
 
 # ── Satellite Data ────────────────────────────────────────────────────────────
@@ -431,19 +639,41 @@ async def get_satellite_data(crop: Optional[str] = "tomato"):
 # ── Alerts ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/alerts", tags=["Alerts"])
-async def get_alerts(farmer_id: Optional[str] = None):
-    """Get proactive alerts for a farmer."""
-    # Return demo alerts
-    from agents.advanced_agents import _build_mock_satellite_data
-    alerts = [
-        {"type": "weather", "severity": "high", "title": "🌧️ Heavy Rain Tomorrow",
-         "message": "70% chance of rainfall. Avoid pesticide spraying.", "action": "Postpone spraying"},
-        {"type": "disease", "severity": "medium", "title": "🍄 High Humidity Alert",
-         "message": "Humidity above 80% — fungal disease risk elevated.", "action": "Apply preventive fungicide"},
-        {"type": "market", "severity": "low", "title": "📈 Tomato Prices Rising",
-         "message": "Tomato prices up 12% this week. Good selling opportunity.", "action": "Contact Azadpur Mandi"},
-    ]
-    return {"alerts": alerts, "count": len(alerts)}
+async def get_alerts(
+    farmer_id: Optional[str] = None,
+    lat: float = settings.default_lat,
+    lon: float = settings.default_lon,
+):
+    """Get proactive alerts generated from current farm conditions."""
+    from agents.supporting_agents import alert_agent
+    from agents.weather_agent import MOCK_WEATHER_DATA
+
+    weather_data = MOCK_WEATHER_DATA
+    if settings.openweather_api_key:
+        try:
+            from agents.weather_agent import fetch_weather
+            weather_data = await fetch_weather(lat, lon, settings.openweather_api_key)
+        except Exception as e:
+            logger.warning("Alert weather fetch failed, using fallback weather: %s", e)
+    else:
+        weather_data = {
+            **MOCK_WEATHER_DATA,
+            "location": f"Current coordinates ({lat:.3f}, {lon:.3f})",
+            "source": "Fallback Weather (OpenWeather API key not configured)",
+        }
+
+    result = alert_agent({
+        "farmer_id": farmer_id,
+        "weather_data": weather_data,
+        "market_prices": {},
+    })
+    alerts = result.get("active_alerts", [])
+    return {
+        "alerts": alerts,
+        "count": len(alerts),
+        "location": weather_data.get("location"),
+        "source": weather_data.get("source"),
+    }
 
 
 # ── Crop Calendar ─────────────────────────────────────────────────────────────

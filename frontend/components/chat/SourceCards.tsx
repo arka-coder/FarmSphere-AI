@@ -1,42 +1,34 @@
 "use client";
-import { motion } from "framer-motion";
-import type { SourceDocument } from "@/lib/api";
 import { ExternalLink } from "lucide-react";
 
-export default function SourceCards({ sources }: { sources: SourceDocument[] }) {
-  const unique = sources.filter((s, i, arr) =>
-    arr.findIndex(x => x.source === s.source) === i
-  );
+interface Source {
+  title: string;
+  source: string;
+  relevance?: number;
+}
 
+interface Props {
+  sources: Source[];
+}
+
+export default function SourceCards({ sources }: Props) {
   return (
     <div className="space-y-2">
-      {unique.map((src, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, x: -8 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.08 }}
-          className="source-card group cursor-default"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-farm-700 dark:text-farm-400 truncate">
-                {src.title}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{src.source}</p>
-              {src.excerpt && (
-                <p className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">
-                  {src.excerpt}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <div className="text-xs font-semibold text-farm-600 dark:text-farm-400 bg-farm-50 dark:bg-farm-950/50 px-1.5 py-0.5 rounded-full">
-                {Math.round(src.relevance_score * 100)}%
-              </div>
-            </div>
+      {sources.map((s, i) => (
+        <div key={i} className="source-card group flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold leading-tight truncate" style={{ color: "#e2e8f0" }}>
+              {s.title}
+            </p>
+            <p className="text-xs mt-0.5 truncate" style={{ color: "#475569" }}>{s.source}</p>
           </div>
-        </motion.div>
+          {s.relevance !== undefined && (
+            <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded-md"
+              style={{ background: "rgba(59,130,246,0.1)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.2)" }}>
+              {Math.round(s.relevance * 100)}%
+            </span>
+          )}
+        </div>
       ))}
     </div>
   );

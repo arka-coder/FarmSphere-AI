@@ -115,35 +115,45 @@ def disease_agent(state: FarmSphereState) -> dict:
             diagnosis = MOCK_DISEASE_RESPONSE
             used_mock = True
         elif image_b64:
-            # Multimodal: use Gemini Vision
-            llm = ChatGoogleGenerativeAI(
-                model=settings.gemini_vision_model,
-                google_api_key=settings.google_api_key,
-                temperature=0.1,
-            )
-            message = HumanMessage(
-                content=[
-                    {"type": "text", "text": DISEASE_SYSTEM_PROMPT},
-                    {
-                        "type": "image_url",
-                        "image_url": f"data:image/jpeg;base64,{image_b64}",
-                    },
-                ]
-            )
-            response = llm.invoke([message])
-            diagnosis = _parse_disease_json(response.content)
+            # Multimodal: use Gemini Vision (gemini-2.0-flash supports vision)
+            try:
+                llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash",
+                    google_api_key=settings.google_api_key,
+                    temperature=0.1,
+                    max_retries=0,
+                )
+                message = HumanMessage(
+                    content=[
+                        {"type": "text", "text": DISEASE_SYSTEM_PROMPT},
+                        {
+                            "type": "image_url",
+                            "image_url": f"data:image/jpeg;base64,{image_b64}",
+                        },
+                    ]
+                )
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(llm.invoke, [message])
+                    response = future.result(timeout=30)
+                diagnosis = _parse_disease_json(response.content)
+            except Exception as e:
+                logger.warning("Vision model failed: %s — using mock", e)
+                diagnosis = MOCK_DISEASE_RESPONSE
+                used_mock = True
         else:
-            # Text-only: describe symptoms
-            llm = ChatGoogleGenerativeAI(
-                model=settings.gemini_model,
-                google_api_key=settings.google_api_key,
-                temperature=0.1,
-            )
-            response = llm.invoke([
-                SystemMessage(content=DISEASE_TEXT_PROMPT),
-                HumanMessage(content=f"Farmer says: {user_message}\nCrop: {state.get('crop_type', 'unknown')}"),
-            ])
-            diagnosis = _parse_disease_json(response.content)
+            # Text-only: describe symptoms via invoke_with_fallback
+            try:
+                from agents.llm_helper import invoke_with_fallback
+                raw = invoke_with_fallback([
+                    SystemMessage(content=DISEASE_TEXT_PROMPT),
+                    HumanMessage(content=f"Farmer says: {user_message}\nCrop: {state.get('crop_type', 'unknown')}"),
+                ], temperature=0.1)
+                diagnosis = _parse_disease_json(raw or "{}")
+            except Exception as e:
+                logger.warning("Disease text analysis failed: %s", e)
+                diagnosis = MOCK_DISEASE_RESPONSE
+                used_mock = True
 
         confidence = float(diagnosis.get("confidence", 0.5))
         hitl_required = (

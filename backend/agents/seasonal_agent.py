@@ -119,25 +119,24 @@ def seasonal_agent(state: FarmSphereState) -> dict:
             key = (season, condition)
             seasonal_risks.extend(SEASONAL_RISKS.get(key, []))
 
-        # Generate comprehensive seasonal advice with Gemini
-        if settings.google_api_key:
+        # Only call LLM if the user's intent is specifically crop/season focused
+        skip_llm = state.get("intent") not in ["crop_planning", "general_farming", "risk_assessment"]
+
+        if settings.google_api_key and not skip_llm:
             try:
-                llm = ChatGoogleGenerativeAI(
-                    model=settings.gemini_model,
-                    google_api_key=settings.google_api_key,
-                    temperature=0.3,
-                )
+                from agents.llm_helper import invoke_with_fallback
                 context = (
                     f"Crop: {crop}, Season: {season}, Current Stage: {crop_stage}\n"
                     f"Location: {location}, Month: {datetime.now().strftime('%B')}\n"
                     f"Weather: Temp={temperature}°C, Humidity={humidity}%\n"
                     f"Known seasonal risks: {'; '.join(seasonal_risks)}"
                 )
-                response = llm.invoke([
+                result = invoke_with_fallback([
                     SystemMessage(content=SEASONAL_SYSTEM_PROMPT),
                     HumanMessage(content=context),
-                ])
-                seasonal_advice = response.content.strip()
+                ], temperature=0.3)
+                if result:
+                    seasonal_advice = result
             except Exception as e:
                 logger.warning("Gemini seasonal advice failed: %s", e)
                 seasonal_advice = _fallback_seasonal_advice(season, crop, crop_stage, seasonal_risks)

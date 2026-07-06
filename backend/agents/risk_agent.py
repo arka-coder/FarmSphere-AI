@@ -128,13 +128,11 @@ def risk_agent(state: FarmSphereState) -> dict:
     try:
         import json
 
-        if settings.google_api_key:
+        skip_llm = state.get("intent") != "risk_assessment"
+
+        if settings.google_api_key and not skip_llm:
             try:
-                llm = ChatGoogleGenerativeAI(
-                    model=settings.gemini_model,
-                    google_api_key=settings.google_api_key,
-                    temperature=0.1,
-                )
+                from agents.llm_helper import invoke_with_fallback
                 weather = state.get("weather_data", {})
                 context = (
                     f"Crop: {state.get('crop_type', 'unknown')}\n"
@@ -148,15 +146,16 @@ def risk_agent(state: FarmSphereState) -> dict:
                     f"Tomorrow rain chance: {weather.get('forecast', [{}])[0].get('rain_chance', 0) if weather.get('forecast') else 0}%\n"
                     f"Crop stage: {state.get('crop_stage', 'unknown')}"
                 )
-                response = llm.invoke([
+                raw = invoke_with_fallback([
                     SystemMessage(content=RISK_SYSTEM_PROMPT),
                     HumanMessage(content=context),
-                ])
-                raw = response.content.strip()
+                ], temperature=0.1)
                 if "```json" in raw:
                     raw = raw.split("```json")[1].split("```")[0]
-                elif "```" in raw:
+                elif "```" in (raw or ""):
                     raw = raw.split("```")[1].split("```")[0]
+                if not raw:
+                    raise ValueError("Empty response from LLM")
                 risk_data = json.loads(raw)
                 risk_scores = risk_data.get("risk_scores", {})
                 risk_summary = risk_data.get("risk_summary", "")

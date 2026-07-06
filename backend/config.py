@@ -17,9 +17,9 @@ class Settings(BaseSettings):
 
     # ── Google / Gemini ───────────────────────────────────────
     google_api_key: str = Field(default="", env="GOOGLE_API_KEY")
-    gemini_model: str = "gemini-2.0-flash"
-    gemini_model_fallback: str = "gemini-1.5-flash"  # used when primary hits rate limits
-    gemini_vision_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-pro"
+    gemini_model_fallback: str = "gemini-pro"  # used when primary hits rate limits
+    gemini_vision_model: str = "gemini-pro-vision"
     embedding_model: str = "models/text-embedding-004"
 
     # ── Weather ───────────────────────────────────────────────
@@ -30,9 +30,11 @@ class Settings(BaseSettings):
     # ── Search ────────────────────────────────────────────────
     tavily_api_key: str = Field(default="", env="TAVILY_API_KEY")
 
-    # ── PostgreSQL ────────────────────────────────────────────
+    # ── PostgreSQL / SQLite ───────────────────────────────────
     database_url: str = Field(
-        default="postgresql://farmsphere:farmsphere_secret@localhost:5432/farmsphere_db",
+        # SQLite by default (zero-install, file created automatically).
+        # For production swap to: postgresql://user:pass@host:5432/farmsphere_db
+        default="sqlite:///./farmsphere.db",
         env="DATABASE_URL",
     )
 
