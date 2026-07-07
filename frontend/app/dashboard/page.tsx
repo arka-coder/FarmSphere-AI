@@ -105,8 +105,8 @@ export default function DashboardPage() {
     [],
   );
 
-  const temp = weather?.temperature ?? 28;
-  const rainChance = weather?.forecast?.[0]?.rain_chance ?? 70;
+  const temp = Math.round(weather?.temperature ?? 28);
+  const rainChance = Math.round(weather?.forecast?.[0]?.rain_chance ?? 70);
   const ndvi = satellite?.current_ndvi?.toFixed?.(2) ?? "0.63";
   const alertCount = alerts.length;
   const locationName = weather?.location ?? (
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                           <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                             {item.label}
                           </p>
-                          <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
+                          <p className="mt-1 text-2xl xl:text-3xl font-semibold tracking-tight text-slate-950 truncate">
                             {item.value}
                           </p>
                           <p className="text-sm font-medium text-slate-500">{item.sub}</p>

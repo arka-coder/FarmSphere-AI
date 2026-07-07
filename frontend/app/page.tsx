@@ -24,6 +24,8 @@ import {
   Sparkles,
   UploadCloud,
   Zap,
+  Linkedin,
+  Instagram,
 } from "lucide-react";
 
 const navItems = [
@@ -140,9 +142,8 @@ function FarmLogo({
     <div className="flex items-center">
       {!compact && (
         <span
-          className={`font-display text-2xl font-semibold tracking-[-0.02em] md:text-[1.7rem] ${
-            dark ? "text-slate-950" : "text-white [text-shadow:0_1px_18px_rgba(0,0,0,0.55)]"
-          }`}
+          className={`font-display text-2xl font-semibold tracking-[-0.02em] md:text-[1.7rem] ${dark ? "text-slate-950" : "text-white [text-shadow:0_1px_18px_rgba(0,0,0,0.55)]"
+            }`}
         >
           FarmSphere AI
         </span>
@@ -398,18 +399,16 @@ function AIWorkflowSection() {
                     transition={{ delay: index * 0.045, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                     onMouseEnter={() => setActive(index)}
                     onFocus={() => setActive(index)}
-                    className={`group relative flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition duration-300 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-300 ${
-                      isActive
+                    className={`group relative flex w-full items-start gap-4 rounded-2xl border p-4 text-left transition duration-300 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-300 ${isActive
                         ? "border-emerald-200/40 bg-emerald-200/[0.13] shadow-[0_18px_50px_rgba(16,185,129,0.16)]"
                         : "border-white/[0.09] bg-white/[0.055] hover:bg-white/[0.09]"
-                    }`}
+                      }`}
                   >
                     <span
-                      className={`absolute -left-[1.15rem] top-8 hidden h-2.5 w-2.5 rounded-full transition md:block ${
-                        isActive
+                      className={`absolute -left-[1.15rem] top-8 hidden h-2.5 w-2.5 rounded-full transition md:block ${isActive
                           ? "bg-emerald-200 shadow-[0_0_24px_rgba(167,243,208,0.95)]"
                           : "bg-emerald-200/35"
-                      }`}
+                        }`}
                     />
                     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isActive ? "bg-emerald-200 text-emerald-950" : "bg-white/[0.10] text-emerald-200"}`}>
                       <Icon className="h-5 w-5" />
@@ -553,9 +552,8 @@ export default function HomePage() {
           initial={{ y: -34, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.15, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className={`fixed inset-x-0 top-6 z-50 flex w-full items-center justify-between px-7 py-3 transition-colors duration-500 sm:px-10 lg:px-16 ${
-            navOnLightSection ? "text-slate-950" : "text-white"
-          }`}
+          className={`fixed inset-x-0 top-6 z-50 flex w-full items-center justify-between px-7 py-3 transition-colors duration-500 sm:px-10 lg:px-16 ${navOnLightSection ? "text-slate-950" : "text-white"
+            }`}
         >
           <Link href="/" aria-label="FarmSphere AI home">
             <FarmLogo dark={navOnLightSection} />
@@ -565,15 +563,14 @@ export default function HomePage() {
               <a
                 key={item.href}
                 href={item.href}
-                className={`group relative py-1.5 transition duration-300 hover:-translate-y-0.5 ${
-                  activeSection === item.href.slice(1)
+                className={`group relative py-1.5 transition duration-300 hover:-translate-y-0.5 ${activeSection === item.href.slice(1)
                     ? navOnLightSection
                       ? "text-emerald-800"
                       : "text-white [text-shadow:0_1px_18px_rgba(0,0,0,0.55)]"
                     : navOnLightSection
                       ? "text-slate-700 hover:text-emerald-800"
                       : "text-white/86 [text-shadow:0_1px_18px_rgba(0,0,0,0.55)] hover:text-white"
-                }`}
+                  }`}
               >
                 {item.label}
                 <span className={`absolute bottom-0 left-0 h-px w-0 transition-all duration-300 group-hover:w-full group-focus-visible:w-full ${navOnLightSection ? "bg-emerald-700" : "bg-emerald-200"}`} />
@@ -691,14 +688,50 @@ export default function HomePage() {
           <div>
             <p className="font-semibold">GitHub</p>
             <a
-              href="#"
+              href="https://github.com/arka-coder/FarmSphere-AI"
+              target="_blank"
+              rel="noopener noreferrer"
               className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.08] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.14]"
             >
               <Github className="h-4 w-4" />
               Repository
             </a>
-            <p className="mt-5 flex items-center gap-2 text-sm text-white/[0.58]">
-              <Zap className="h-4 w-4 text-amber-200" />
+            <div className="mt-8 border-t border-white/[0.1] pt-6">
+              <p className="flex items-center gap-2 text-sm font-medium text-white/[0.78]">
+                Made by Arka Roy
+              </p>
+              <div className="mt-4 flex items-center gap-3">
+                <a
+                  href="https://github.com/arka-coder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.08] text-white/[0.68] transition hover:bg-white/[0.16] hover:text-white"
+                  aria-label="GitHub"
+                >
+                  <Github className="h-4 w-4" />
+                </a>
+                <a
+                  href="https://www.linkedin.com/in/arka-roy-76b1561b2"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.08] text-white/[0.68] transition hover:bg-[#0077b5] hover:text-white"
+                  aria-label="LinkedIn"
+                >
+                  <Linkedin className="h-4 w-4" />
+                </a>
+                <a
+                  href="https://www.instagram.com/i_am_a.roy/?hl=en"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.08] text-white/[0.68] transition hover:bg-gradient-to-tr hover:from-yellow-500 hover:via-pink-500 hover:to-purple-500 hover:text-white"
+                  aria-label="Instagram"
+                >
+                  <Instagram className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+            <p className="mt-5 flex items-center gap-2 text-xs text-white/[0.48]">
+              <Zap className="h-3.5 w-3.5 text-amber-200" />
               Made with Gemini AI
             </p>
           </div>
